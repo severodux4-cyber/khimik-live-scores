@@ -42,9 +42,6 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          git fetch origin main
-          git reset --mixed origin/main
-
           git add state.json
 
           if git diff --cached --quiet; then
@@ -54,4 +51,23 @@ jobs:
 
           git commit -m "Update score state"
 
-          git push origin HEAD:main
+          for i in 1 2 3 4 5; do
+            echo "Push attempt $i"
+
+            git fetch origin main
+
+            if git rebase origin/main; then
+              if git push origin HEAD:main; then
+                echo "State pushed successfully"
+                exit 0
+              fi
+            else
+              git rebase --abort || true
+            fi
+
+            echo "Push failed, retrying..."
+            sleep 5
+          done
+
+          echo "Unable to push state after 5 attempts"
+          exit 1
