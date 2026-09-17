@@ -1,8 +1,8 @@
 import os
 import re
 import json
-import time
 import logging
+import time
 from pathlib import Path
 from urllib.parse import urljoin
 
@@ -13,26 +13,26 @@ from urllib3.util.retry import Retry
 
 COMPETITION_URL = os.getenv(
     "COMPETITION_URL",
-    "https://фхмо.рф/competitions/2026-2027/pervenstvo-moskovskoy-oblasti-po-khokkeyu-sredi-yunoshey-2026-2027/"
+    "https://фхмо.рф/competitions/2026-2027/pervenstvo-moskovskoy-oblasti-po-khokkeyu-sredi-yunoshey-2026-2027/",
 )
 BOT_TOKEN = os.environ["BOT_TOKEN"]
 CHAT_ID = os.environ["CHAT_ID"]
 STATE_FILE = Path("state.json")
 
+# TEST_NOTIFY=true используется только для ручной проверки Telegram.
+TEST_NOTIFY = os.getenv("TEST_NOTIFY", "").lower() in ("1", "true", "yes", "on")
+
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 
-# ФХМО начинает отвечать 503, если сделать слишком много запросов подряд.
-# Поэтому используем повторные попытки + небольшую паузу между запросами.
 session = requests.Session()
 session.headers.update({
-    "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 KhimikScoresBot/4.0"
+    "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 KhimikScoresBot/4.0",
 })
 
 retry = Retry(
     total=4,
     connect=4,
     read=4,
-    status=4,
     backoff_factor=2,
     status_forcelist=(429, 500, 502, 503, 504),
     allowed_methods=frozenset(["GET", "POST"]),
@@ -42,20 +42,19 @@ adapter = HTTPAdapter(max_retries=retry)
 session.mount("https://", adapter)
 session.mount("http://", adapter)
 
-LAST_REQUEST = 0.0
-REQUEST_DELAY = 1.0
+last_get = 0.0
 
 
 def get(url):
-    global LAST_REQUEST
+    global last_get
 
-    # Не долбим сайт десятками запросов подряд.
-    wait = REQUEST_DELAY - (time.monotonic() - LAST_REQUEST)
+    # Не долбим ФХМО слишком быстро.
+    wait = 1.0 - (time.monotonic() - last_get)
     if wait > 0:
         time.sleep(wait)
 
-    r = session.get(url, timeout=40)
-    LAST_REQUEST = time.monotonic()
+    r = session.get(url, timeout=30)
+    last_get = time.monotonic()
     r.raise_for_status()
     return r.text
 
@@ -110,10 +109,10 @@ def discover_age_pages():
     for a in soup.select("a[href]"):
         label = norm(a.get_text(" ", strip=True))
         age = age_from(label)
-        href = urljoin(COMPETITION_URL, a["href"])
+        href = urljoin(COMPETITION_URL, a["href"]).split("?")[0]
 
         if age and "/competitions/com_" in href:
-            result.append((age, label, href.split("?")[0]))
+            result.append((age, label, href))
 
     by_age = {}
     for age, label, href in result:
@@ -139,11 +138,13 @@ def discover_group_pages(age_url):
 def discover_match_links(group_url):
     """
     Возвращает:
-      all_links — все матчи группы;
-      khimik_links — только ссылки, у которых ближайший контейнер/строка
-                      содержит 'Химик Воскресенск'.
+      all_links    — все ссылки на матчи группы
+      khimik_links — ссылки на матчи, где в блоке матча встречается Химик.
 
-    Это позволяет не открывать сотни страниц матчей.
+    Главное отличие от старой версии:
+    наличие Химика в группе определяется по ВСЕЙ странице,
+    а не по конкретному <tr>. Для отдельного матча ищем Химик
+    в нескольких уровнях DOM вокруг ссылки "Обзор матча".
     """
     soup = BeautifulSoup(get(group_url), "html.parser")
 
@@ -152,32 +153,40 @@ def discover_match_links(group_url):
 
     for a in soup.select('a[href*="/matches/m_"]'):
         href = urljoin(group_url, a["href"]).split("?")[0]
-
         if href in all_links:
             continue
 
         all_links.append(href)
 
-        # Сначала пробуем ближайшую строку таблицы.
-        context = ""
-        parent = a.find_parent("tr")
-        if parent:
-            context = norm(parent.get_text(" ", strip=True))
+        # Ищем ближайший контейнер, описывающий именно этот матч.
+        node = a
+        found_khimik = False
 
-        # Если это не таблица — ищем ближайший разумный контейнер.
-        if not context:
-            for tag_name in ("li", "article", "div"):
-                parent = a.find_parent(tag_name)
-                if parent:
-                    text = norm(parent.get_text(" ", strip=True))
-                    if 20 <= len(text) <= 800:
-                        context = text
-                        break
+        for _ in range(10):
+            node = node.parent
+            if node is None:
+                break
 
-        if "Химик Воскресенск" in context:
+            text = norm(node.get_text(" ", strip=True))
+
+            # Контейнер матча обычно содержит "Обзор матча".
+            # Не поднимаемся до всей страницы, иначе Химик будет найден
+            # у каждого матча группы.
+            if len(text) > 5000:
+                break
+
+            if "Химик Воскресенск" in text:
+                found_khimik = True
+                break
+
+        if found_khimik:
             khimik_links.append(href)
 
-    return unique(all_links), unique(khimik_links)
+    # Надёжное определение: участвует ли Химик в этой группе вообще.
+    group_text = norm(soup.get_text(" ", strip=True))
+    khimik_in_group = "Химик Воскресенск" in group_text
+
+    return unique(all_links), unique(khimik_links), khimik_in_group
 
 
 def parse_match(match_url, age, group_label):
@@ -196,7 +205,9 @@ def parse_match(match_url, age, group_label):
     if " - " in title:
         home, away = [norm(x) for x in title.split(" - ", 1)]
     else:
+        # Дополнительный fallback.
         names = []
+
         for tag in soup.find_all(["h1", "h2", "h3"]):
             t = norm(tag.get_text(" ", strip=True))
             if t and t not in names:
@@ -205,15 +216,29 @@ def parse_match(match_url, age, group_label):
         if len(names) >= 2:
             home, away = names[0], names[1]
         else:
-            return None
+            # На страницах ФХМО команды также можно найти по alt у картинок.
+            image_names = []
+            for img in soup.find_all("img"):
+                alt = norm(img.get("alt", ""))
+                if alt and alt not in image_names:
+                    image_names.append(alt)
 
-    # Последняя накопленная пара счёта в ленте событий.
-    # Значения вида 45:00 / 00:00 являются временем, а не счётом.
+            candidates = [
+                x for x in image_names
+                if x and "Image" not in x and len(x) > 2
+            ]
+
+            if len(candidates) >= 2:
+                home, away = candidates[:2]
+            else:
+                return None
+
     score_candidates = re.findall(
         r"(?<!\d)(\d{1,2}):(\d{1,2})(?!\d)",
-        page_text
+        page_text,
     )
 
+    # Не считаем время матча 45:00 / 60:00 счётом.
     scores = [
         (int(a), int(b))
         for a, b in score_candidates
@@ -228,19 +253,20 @@ def parse_match(match_url, age, group_label):
     dt = ""
     m = re.search(
         r"(\d{1,2}\.\d{1,2}\.\d{4})\s+(\d{1,2}:\d{2})",
-        page_text
+        page_text,
     )
     if m:
         dt = f"{m.group(1)} {m.group(2)}"
 
     clocks = re.findall(
-        r"(?<!\d)(\d{1,3}):(\d{2})(?!\d)",
-        page_text
+        r"(?<!\d)(\d{1,2}):(\d{2})(?!\d)",
+        page_text,
     )
 
     max_seconds = 0
-    for mm, ss in clocks:
-        max_seconds = max(max_seconds, int(mm) * 60 + int(ss))
+    for c in clocks:
+        mm, ss = map(int, c)
+        max_seconds = max(max_seconds, mm * 60 + ss)
 
     if max_seconds >= 45 * 60:
         status = "🟢 Матч завершён"
@@ -268,6 +294,16 @@ def parse_match(match_url, age, group_label):
 def main():
     state = load_state()
 
+    # Отдельный тест Telegram. Никаких запросов к ФХМО и никаких изменений state.
+    if TEST_NOTIFY:
+        telegram(
+            "🏒 ТЕСТ Khimik Live Scores\n"
+            "Telegram-уведомления работают корректно.\n"
+            "Это тестовое сообщение, состояние матчей не изменено."
+        )
+        logging.info("TEST_NOTIFY: тестовое сообщение отправлено в Telegram")
+        return
+
     ages = discover_age_pages()
     logging.info("Найдено возрастов: %d", len(ages))
 
@@ -280,15 +316,15 @@ def main():
 
             for group_label, group_url in groups:
                 all_groups.append((age, group_label, group_url))
-
         except Exception as e:
             logging.warning("Ошибка возраста %s: %s", age, e)
 
     current = {}
+    khimik_ages = []
 
     for age, group_label, group_url in all_groups:
         try:
-            all_links, khimik_links = discover_match_links(group_url)
+            all_links, khimik_links, khimik_in_group = discover_match_links(group_url)
 
             logging.info(
                 "%s %s: матчей/ссылок %d, матчей Химика по группе %d",
@@ -298,39 +334,42 @@ def main():
                 len(khimik_links),
             )
 
-            # Для 2017 нужны ВСЕ матчи группы Химика.
-            if age == "2017":
-                if khimik_links:
-                    logging.info(
-                        "2017 %s: группа Химика найдена",
-                        group_label,
-                    )
+            if khimik_in_group:
+                khimik_ages.append(age)
 
-                    for link in all_links:
-                        try:
-                            match = parse_match(link, age, group_label)
-                            if match:
-                                current[link] = match
-                        except Exception as e:
-                            logging.warning(
-                                "Ошибка матча %s: %s",
-                                link,
-                                e,
-                            )
+            # Для 2017 — ВСЯ группа, в которой находится Химик.
+            if age == "2017" and khimik_in_group:
+                logging.info(
+                    "2017 %s: группа Химика найдена — отслеживаем все %d матчей",
+                    group_label,
+                    len(all_links),
+                )
 
-            # Для остальных годов нужны только матчи самого Химика.
+                links_to_parse = all_links
+
+            # Для остальных возрастов — только матчи Химика.
             else:
-                for link in khimik_links:
-                    try:
-                        match = parse_match(link, age, group_label)
-                        if match:
-                            current[link] = match
-                    except Exception as e:
-                        logging.warning(
-                            "Ошибка матча %s: %s",
-                            link,
-                            e,
-                        )
+                links_to_parse = khimik_links
+
+            for link in links_to_parse:
+                try:
+                    match = parse_match(link, age, group_label)
+                    if not match:
+                        continue
+
+                    # Дополнительная защита: для не-2017 проверяем команды
+                    # уже на странице конкретного матча.
+                    if age != "2017":
+                        if "Химик Воскресенск" not in (
+                            match["home"],
+                            match["away"],
+                        ):
+                            continue
+
+                    current[link] = match
+
+                except Exception as e:
+                    logging.warning("Ошибка матча %s: %s", link, e)
 
         except Exception as e:
             logging.warning(
@@ -340,19 +379,32 @@ def main():
                 e,
             )
 
+    khimik_ages = sorted(set(khimik_ages))
+    logging.info(
+        "Возрастов с Химиком: %s",
+        ", ".join(khimik_ages) if khimik_ages else "не найдено",
+    )
     logging.info("Отслеживаемых матчей: %d", len(current))
 
     for key, match in current.items():
         old = state.get(key)
 
-        # На первом обнаружении просто запоминаем счёт.
-        # Telegram отправляем только при изменении счёта.
+        # Уведомляем только об изменении счёта.
         if old and old.get("score") != match["score"]:
             telegram(
                 f"🏒 Химик Воскресенск {match['age']}\n"
                 f"{match['home']} — {match['away']}\n"
                 f"{match['score']}\n"
                 f"{match['status']}"
+            )
+
+            logging.info(
+                "ОТПРАВЛЕНО: %s %s — %s: %s → %s",
+                match["age"],
+                match["home"],
+                match["away"],
+                old.get("score"),
+                match["score"],
             )
 
         state[key] = match
