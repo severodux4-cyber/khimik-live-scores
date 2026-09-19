@@ -366,6 +366,8 @@ def parse_match(url, age, group_label):
 
 
 def main():
+    global INITIAL_NOTIFY_DONE
+
     state = load_state()
 
     if TEST_NOTIFY:
@@ -507,6 +509,8 @@ def main():
             f"🥅 {match['score']}\n"
             f"{match['status']}"
         )
+
+        time.sleep(0.25)
 
         logging.info(
             "ОТПРАВЛЕНО: %s %s — %s: %s → %s",
