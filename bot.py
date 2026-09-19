@@ -844,13 +844,13 @@ def main():
             if norm(match["home"]).lower() == "химик воскресенск":
                 header = "🥅 ГОООЛ ХИМИКА!"
             else:
-                header = f"🥅 ГОЛ — {match['home']}"
+                header = "🥅 ГОЛ СОПЕРНИКА"
 
         elif event == "away_goal":
             if norm(match["away"]).lower() == "химик воскресенск":
                 header = "🥅 ГОООЛ ХИМИКА!"
             else:
-                header = f"🥅 ГОЛ — {match['away']}"
+                header = "🥅 ГОЛ СОПЕРНИКА"
 
         elif event == "start":
             header = "🟢 МАТЧ НАЧАЛСЯ!"
@@ -865,7 +865,7 @@ def main():
             f"🏒 Химик Воскресенск {match['age']}\n"
             f"🕒 {match['date_time']}\n"
             f"{match['home']} — {match['away']}\n"
-            f"🥅 {match['score']}\n"
+            f"🔥 Счёт: {match['score']}\n"
             f"{match['status']}"
         )
         message = f"{header}\n\n{body}" if header else body
