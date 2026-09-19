@@ -20,6 +20,7 @@ COMPETITION_URL = os.getenv(
 BOT_TOKEN = os.environ["BOT_TOKEN"]
 CHAT_ID = os.environ["CHAT_ID"]
 STATE_FILE = Path("state.json")
+USERS_FILE = Path("users.json")
 TEST_NOTIFY = os.getenv("TEST_NOTIFY", "").lower() in ("1", "true", "yes", "on")
 
 MOSCOW = ZoneInfo("Europe/Moscow")
@@ -65,13 +66,142 @@ def get(url):
         _last_request = time.monotonic()
 
 
-def telegram(text):
+def telegram_to(chat_id, text):
     r = session.post(
         f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
-        data={"chat_id": CHAT_ID, "text": text},
+        data={"chat_id": str(chat_id), "text": text},
         timeout=15,
     )
     r.raise_for_status()
+
+
+def load_users():
+    data = {"offset": 0, "users": {}}
+
+    if USERS_FILE.exists():
+        try:
+            raw = json.loads(USERS_FILE.read_text(encoding="utf-8"))
+            if isinstance(raw, dict):
+                data["offset"] = int(raw.get("offset", 0))
+                data["users"] = raw.get("users", {}) if isinstance(raw.get("users", {}), dict) else {}
+        except Exception as e:
+            logging.warning("USERS: не удалось прочитать users.json: %s", e)
+
+    # Владелец бота всегда получает уведомления.
+    data["users"][str(CHAT_ID)] = {"active": True, "admin": True}
+    return data
+
+
+def save_users(data):
+    USERS_FILE.write_text(
+        json.dumps(data, ensure_ascii=False, indent=2, sort_keys=True),
+        encoding="utf-8",
+    )
+
+
+def process_telegram_commands(users):
+    """Обрабатывает команды Telegram при очередном запуске GitHub Actions."""
+    offset = int(users.get("offset", 0))
+
+    try:
+        r = session.get(
+            f"https://api.telegram.org/bot{BOT_TOKEN}/getUpdates",
+            params={
+                "offset": offset,
+                "timeout": 0,
+                "allowed_updates": json.dumps(["message"]),
+            },
+            timeout=15,
+        )
+        r.raise_for_status()
+        payload = r.json()
+    except Exception as e:
+        logging.warning("TELEGRAM UPDATES: ошибка получения команд: %s", e)
+        return
+
+    if not payload.get("ok"):
+        logging.warning("TELEGRAM UPDATES: API вернул ошибку: %s", payload)
+        return
+
+    for update in payload.get("result", []):
+        update_id = update.get("update_id")
+        if update_id is not None:
+            users["offset"] = max(int(users.get("offset", 0)), int(update_id) + 1)
+
+        message = update.get("message") or {}
+        chat = message.get("chat") or {}
+        chat_id = chat.get("id")
+        if chat_id is None:
+            continue
+
+        raw_command = (message.get("text") or "").strip()
+        if not raw_command:
+            continue
+
+        command = raw_command.split()[0].lower().split("@")[0]
+
+        if command == "/start":
+            users["users"][str(chat_id)] = {"active": True}
+            try:
+                telegram_to(
+                    chat_id,
+                    "🏒 Химик Live Scores\n\n"
+                    "🔔 Уведомления включены.\n"
+                    "Я буду присылать изменения счёта матчей Химика."
+                )
+                logging.info("USERS: подключён chat_id=%s", chat_id)
+            except Exception as e:
+                logging.warning("USERS: не удалось отправить приветствие %s: %s", chat_id, e)
+
+        elif command == "/stop":
+            existing = users["users"].get(str(chat_id), {})
+            existing["active"] = False
+            users["users"][str(chat_id)] = existing
+            try:
+                telegram_to(
+                    chat_id,
+                    "🔕 Уведомления отключены.\n"
+                    "Для повторного включения отправьте /start."
+                )
+                logging.info("USERS: отключён chat_id=%s", chat_id)
+            except Exception as e:
+                logging.warning("USERS: не удалось отправить /stop %s: %s", chat_id, e)
+
+        elif command == "/help":
+            try:
+                telegram_to(
+                    chat_id,
+                    "🏒 Химик Live Scores\n\n"
+                    "/start — включить уведомления\n"
+                    "/stop — отключить уведомления\n"
+                    "/help — помощь"
+                )
+            except Exception as e:
+                logging.warning("USERS: не удалось отправить /help %s: %s", chat_id, e)
+
+    save_users(users)
+
+
+def telegram(text):
+    # Старое имя оставляем для тестовой отправки администратору.
+    telegram_to(CHAT_ID, text)
+
+
+def broadcast(text, users):
+    sent = 0
+
+    for chat_id, info in list(users.get("users", {}).items()):
+        if not isinstance(info, dict) or not info.get("active", False):
+            continue
+
+        try:
+            telegram_to(chat_id, text)
+            sent += 1
+            time.sleep(0.15)
+        except Exception as e:
+            logging.warning("BROADCAST: ошибка chat_id=%s: %s", chat_id, e)
+
+    logging.info("BROADCAST: отправлено пользователям: %d", sent)
 
 
 def load_state():
@@ -369,6 +499,8 @@ def main():
     global INITIAL_NOTIFY_DONE
 
     state = load_state()
+    users = load_users()
+    process_telegram_commands(users)
 
     if TEST_NOTIFY:
         telegram(
@@ -479,12 +611,36 @@ def main():
         for key, match in current.items():
             if match.get("status") == "⏳ Матч не начался":
                 continue
-            changes.append((key, {"score": "—"}, match))
+            changes.append((key, {"score": "—"}, match, "initial"))
     else:
         for key, match in current.items():
             old = state.get(key)
-            if old and old.get("score") != match["score"]:
-                changes.append((key, old, match))
+            if not old:
+                continue
+
+            old_score = old.get("score")
+            new_score = match.get("score")
+            old_status = old.get("status", "")
+            new_status = match.get("status", "")
+
+            if old_score != new_score:
+                event = "score"
+                try:
+                    oh, oa = map(int, old_score.split(":"))
+                    nh, na = map(int, new_score.split(":"))
+                    if nh == oh + 1 and na == oa:
+                        event = "home_goal"
+                    elif na == oa + 1 and nh == oh:
+                        event = "away_goal"
+                except Exception:
+                    pass
+                changes.append((key, old, match, event))
+
+            elif old_status == "⏳ Матч не начался" and new_status.startswith("⏱"):
+                changes.append((key, old, match, "start"))
+
+            elif old_status.startswith("⏱") and new_status == "🏁 Матч завершён":
+                changes.append((key, old, match, "finish"))
 
     def sort_key(row):
         _key, _old, match = row
@@ -501,24 +657,44 @@ def main():
             dt_key = datetime.max
         return age_key, dt_key
 
-    for key, old, match in sorted(changes, key=sort_key):
-        telegram(
+    initial_mode = not INITIAL_NOTIFY_DONE
+
+    for key, old, match, event in sorted(changes, key=sort_key):
+        if event == "home_goal":
+            header = "🥅 ГОООЛ ХИМИКА!"
+        elif event == "away_goal":
+            header = "🥅 ГОЛ СОПЕРНИКА"
+        elif event == "start":
+            header = "🟢 МАТЧ НАЧАЛСЯ"
+        elif event == "finish":
+            header = "🏁 МАТЧ ЗАВЕРШЁН"
+        else:
+            header = None
+
+        body = (
             f"🏒 Химик Воскресенск {match['age']}\n"
-            f"📅 {match['date_time']}\n"
+            f"🕒 {match['date_time']}\n"
             f"{match['home']} — {match['away']}\n"
             f"🥅 {match['score']}\n"
             f"{match['status']}"
         )
+        message = f"{header}\n\n{body}" if header else body
 
-        time.sleep(0.25)
+        if initial_mode:
+            # Исторический backfill получает только владелец бота.
+            telegram(message)
+        else:
+            # После первичной рассылки уведомления получают все активные подписчики.
+            broadcast(message, users)
 
         logging.info(
-            "ОТПРАВЛЕНО: %s %s — %s: %s → %s",
+            "ОТПРАВЛЕНО: %s %s — %s: %s → %s (%s)",
             match["age"],
             match["home"],
             match["away"],
             old.get("score"),
             match["score"],
+            event,
         )
 
     # State обновляем после успешной отправки всех сообщений.
@@ -530,6 +706,7 @@ def main():
         logging.info("INITIAL_NOTIFY: первая рассылка завершена, дальше только изменения счёта")
 
     save_state(state)
+    save_users(users)
 
 
 if __name__ == "__main__":
