@@ -67,27 +67,10 @@ def get(url):
         _last_request = time.monotonic()
 
 
-def telegram_keyboard():
-    return {
-        "keyboard": [
-            [{"text": "🏒 Сегодня"}, {"text": "📅 Ближайшие"}],
-            [{"text": "🥅 Результаты"}, {"text": "📊 Статус"}],
-            [{"text": "ℹ️ Помощь"}],
-        ],
-        "resize_keyboard": True,
-        "is_persistent": True,
-        "one_time_keyboard": False,
-    }
-
-
 def telegram_to(chat_id, text):
     r = session.post(
         f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
-        data={
-            "chat_id": str(chat_id),
-            "text": text,
-            "reply_markup": json.dumps(telegram_keyboard(), ensure_ascii=False),
-        },
+        data={"chat_id": str(chat_id), "text": text},
         timeout=15,
     )
     r.raise_for_status()
@@ -118,8 +101,7 @@ def save_users(data):
 
 
 def process_telegram_commands(users):
-    """Обрабатывает Telegram-команды и возвращает команды, требующие свежих данных матчей."""
-    pending_commands = []
+    """Обрабатывает команды Telegram при очередном запуске GitHub Actions."""
     offset = int(users.get("offset", 0))
 
     try:
@@ -154,15 +136,6 @@ def process_telegram_commands(users):
             continue
 
         raw_command = (message.get("text") or "").strip()
-
-        button_commands = {
-            "🏒 Сегодня": "/today",
-            "📅 Ближайшие": "/next",
-            "🥅 Результаты": "/results",
-            "📊 Статус": "/status",
-            "ℹ️ Помощь": "/help",
-        }
-        raw_command = button_commands.get(raw_command, raw_command)
         if not raw_command:
             continue
 
@@ -195,10 +168,6 @@ def process_telegram_commands(users):
             except Exception as e:
                 logging.warning("USERS: не удалось отправить /stop %s: %s", chat_id, e)
 
-        elif command in ("/today", "/next", "/results", "/status"):
-            pending_commands.append((str(chat_id), command))
-            logging.info("COMMAND: %s от chat_id=%s", command, chat_id)
-
         elif command == "/help":
             try:
                 telegram_to(
@@ -206,17 +175,12 @@ def process_telegram_commands(users):
                     "🏒 Химик Live Scores\n\n"
                     "/start — включить уведомления\n"
                     "/stop — отключить уведомления\n"
-                    "/today — матчи сегодня\n"
-                    "/next — ближайшие матчи\n"
-                    "/results — последние результаты\n"
-                    "/status — состояние мониторинга\n"
                     "/help — помощь"
                 )
             except Exception as e:
                 logging.warning("USERS: не удалось отправить /help %s: %s", chat_id, e)
 
     save_users(users)
-    return pending_commands
 
 
 def telegram(text):
@@ -548,26 +512,16 @@ def parse_datetime(soup, page_text):
 
 
 def parse_status(soup, page_text, scheduled_dt):
-    """Определяет статус матча с приоритетом реальных признаков завершения."""
+    """Определяет статус без ложного '3 период' из названий вкладок.
+
+    На странице ФХМО текст '3 период' может присутствовать просто как
+    название вкладки ленты, даже после окончания матча. Поэтому сначала
+    смотрим на фактические события игры, а затем на время от начала.
+    """
     now = datetime.now(MOSCOW)
 
     if scheduled_dt and scheduled_dt > now:
         return "⏳ Матч не начался"
-
-    # Сначала ищем явные признаки завершения именно в содержимом страницы,
-    # а не в названиях вкладок/периодов.
-    text_lower = norm(page_text).lower()
-
-    finish_markers = (
-        "матч завершен",
-        "матч завершён",
-        "игра завершена",
-        "игра завершена",
-        "окончание матча",
-        "матч окончен",
-    )
-
-    has_finish_marker = any(marker in text_lower for marker in finish_markers)
 
     # Берём период из фактических событий, а НЕ из текста кнопок-вкладок.
     event_periods = []
@@ -578,14 +532,10 @@ def parse_status(soup, page_text, scheduled_dt):
 
     latest_period = event_periods[-1] if event_periods else None
 
-    # Явный признак завершения имеет приоритет над fallback по времени.
-    if has_finish_marker:
-        return "🏁 Матч завершён"
-
     # Если матч начался недавно, считаем его идущим.
+    # Это покрывает, например, матч 13:15 в момент 14:04.
     if scheduled_dt:
         elapsed = (now - scheduled_dt).total_seconds() / 60
-
         if elapsed < MATCH_DURATION_GRACE_MINUTES:
             if latest_period == "3 период":
                 return "⏱ 3 период"
@@ -595,8 +545,9 @@ def parse_status(soup, page_text, scheduled_dt):
                 return "⏱ 1 период"
             return "⏱ Матч идёт"
 
-        # Fallback: после двух часов считаем матч завершённым,
-        # если сайт не сообщил явный другой статус.
+        # После двух часов после стартового времени при наличии результата
+        # считаем матч завершённым. В отличие от старой версии, наличие
+        # текста '3 период' в вкладке больше не мешает этому.
         return "🏁 Матч завершён"
 
     return "ℹ️ Статус не определён"
@@ -710,103 +661,12 @@ def event_id(match, event):
 
 
 
-def _match_datetime(match):
-    try:
-        return datetime.strptime(match.get("date_time", ""), "%d.%m.%Y %H:%M").replace(tzinfo=MOSCOW)
-    except Exception:
-        return None
-
-
-def _is_khimik_match(match):
-    home = norm(match.get("home", "")).lower()
-    away = norm(match.get("away", "")).lower()
-    return home == "химик воскресенск" or away == "химик воскресенск"
-
-
-def _command_match_line(match, include_age=True):
-    age = f" {match.get('age', '')}" if include_age else ""
-    status = match.get("status", "")
-    return (
-        f"🏒 Химик Воскресенск{age}\n"
-        f"🕒 {match.get('date_time', '—')}\n"
-        f"{match.get('home', '—')} — {match.get('away', '—')}\n"
-        f"🥅 {match.get('score', '—')}\n"
-        f"{status}"
-    )
-
-
-def send_command_responses(pending_commands, current, state):
-    """Формирует ответы на /today, /next, /results и /status после свежего опроса ФХМО."""
-    if not pending_commands:
-        return
-
-    now = datetime.now(MOSCOW)
-    matches = [m for m in current.values() if isinstance(m, dict) and _match_datetime(m)]
-    khimik_matches = [m for m in matches if _is_khimik_match(m)]
-    khimik_matches.sort(key=lambda m: _match_datetime(m) or datetime.max.replace(tzinfo=MOSCOW))
-
-    for chat_id, command in pending_commands:
-        try:
-            if command == "/today":
-                today = [m for m in khimik_matches if _match_datetime(m).date() == now.date()]
-                if not today:
-                    text = f"📅 Сегодня, {now.strftime('%d.%m.%Y')}, матчей Химика не найдено."
-                else:
-                    blocks = [f"📅 МАТЧИ ХИМИКА — {now.strftime('%d.%m.%Y')}", ""]
-                    blocks.extend(_command_match_line(m) for m in today)
-                    text = "\n\n".join(blocks)
-
-            elif command == "/next":
-                upcoming = [m for m in khimik_matches if _match_datetime(m) > now and m.get("status") == "⏳ Матч не начался"]
-                upcoming = upcoming[:5]
-                if not upcoming:
-                    text = "⏭ Ближайших матчей Химика не найдено."
-                else:
-                    blocks = ["⏭ БЛИЖАЙШИЕ МАТЧИ ХИМИКА", ""]
-                    blocks.extend(_command_match_line(m) for m in upcoming)
-                    text = "\n\n".join(blocks)
-
-            elif command == "/results":
-                finished = [m for m in khimik_matches if m.get("status") == "🏁 Матч завершён"]
-                finished.sort(key=lambda m: _match_datetime(m) or datetime.min.replace(tzinfo=MOSCOW), reverse=True)
-                finished = finished[:10]
-                if not finished:
-                    text = "📊 Завершённых матчей Химика пока не найдено."
-                else:
-                    blocks = ["📊 ПОСЛЕДНИЕ РЕЗУЛЬТАТЫ ХИМИКА", ""]
-                    blocks.extend(_command_match_line(m) for m in finished)
-                    text = "\n\n".join(blocks)
-
-            elif command == "/status":
-                tracked = len(current)
-                ages = sorted({str(m.get("age")) for m in current.values() if isinstance(m, dict) and m.get("age")})
-                live = sum(1 for m in current.values() if isinstance(m, dict) and str(m.get("status", "")).startswith("⏱"))
-                upcoming = sum(1 for m in current.values() if isinstance(m, dict) and m.get("status") == "⏳ Матч не начался")
-                finished = sum(1 for m in current.values() if isinstance(m, dict) and m.get("status") == "🏁 Матч завершён")
-                text = (
-                    "📡 СТАТУС МОНИТОРИНГА\n\n"
-                    f"Матчей отслеживается: {tracked}\n"
-                    f"Возрастов: {len(ages)}\n"
-                    f"Идёт сейчас: {live}\n"
-                    f"Предстоящих: {upcoming}\n"
-                    f"Завершено: {finished}\n"
-                    f"Последний опрос: {now.strftime('%d.%m.%Y %H:%M:%S')} MSK"
-                )
-
-            else:
-                continue
-
-            telegram_to(chat_id, text)
-        except Exception as e:
-            logging.warning("COMMAND: не удалось отправить %s пользователю %s: %s", command, chat_id, e)
-
-
 def main():
     global INITIAL_NOTIFY_DONE
 
     state = load_state()
     users = load_users()
-    pending_commands = process_telegram_commands(users)
+    process_telegram_commands(users)
 
     if TEST_NOTIFY:
         telegram(
@@ -933,8 +793,6 @@ def main():
             "ФХМО: текущий запуск пропущен из-за неполного ответа сайта"
         )
         return
-
-    send_command_responses(pending_commands, current, state)
 
     # Первый запуск после установки v5: отправляем ВСЕ уже сыгранные
     # и текущие матчи. Будущие матчи не отправляем. После успешной
