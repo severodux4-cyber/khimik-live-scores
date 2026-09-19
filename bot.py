@@ -198,6 +198,15 @@ def broadcast(text, users):
             telegram_to(chat_id, text)
             sent += 1
             time.sleep(0.15)
+        except requests.HTTPError as e:
+            if e.response is not None and e.response.status_code == 403:
+                info["active"] = False
+                logging.warning(
+                    "BROADCAST: chat_id=%s недоступен (403), отключаем пользователя",
+                    chat_id,
+                )
+            else:
+                logging.warning("BROADCAST: ошибка chat_id=%s: %s", chat_id, e)
         except Exception as e:
             logging.warning("BROADCAST: ошибка chat_id=%s: %s", chat_id, e)
 
