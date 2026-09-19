@@ -646,6 +646,21 @@ def is_incomplete_response(state, current, khimik_ages):
     return False
 
 
+
+def event_id(match, event):
+    """Уникальный идентификатор уведомления для конкретного матча."""
+    match_id = match.get("url", "").rstrip("/").split("/")[-1]
+    score = match.get("score", "")
+    if event in ("home_goal", "away_goal", "score"):
+        return f"{match_id}:score:{score}"
+    if event == "start":
+        return f"{match_id}:start"
+    if event == "finish":
+        return f"{match_id}:finish:{score}"
+    return f"{match_id}:{event}:{score}"
+
+
+
 def main():
     global INITIAL_NOTIFY_DONE
 
@@ -848,7 +863,20 @@ def main():
     initial_mode = not INITIAL_NOTIFY_DONE
     notifications_sent = 0
 
+    sent_events = state.get("_sent_events", [])
+    if not isinstance(sent_events, list):
+        sent_events = []
+    sent_events = set(str(x) for x in sent_events)
+
     for key, old, match, event in sorted(changes, key=sort_key):
+        current_event_id = event_id(match, event)
+
+        if not initial_mode and current_event_id in sent_events:
+            logging.info(
+                "EVENT: повторное событие пропущено: %s",
+                current_event_id,
+            )
+            continue
         if event == "home_goal":
             if norm(match["home"]).lower() == "химик воскресенск":
                 header = "🥅 ГОООЛ ХИМИКА!"
@@ -895,6 +923,9 @@ def main():
             # После первичной рассылки уведомления получают все активные подписчики.
             broadcast(message, users)
 
+        if not initial_mode:
+            sent_events.add(current_event_id)
+
         notifications_sent += 1
 
         logging.info(
@@ -910,6 +941,9 @@ def main():
     # State обновляем после успешной отправки всех сообщений.
     for key, match in current.items():
         state[key] = match
+
+    # Храним ограниченную историю уведомлений, чтобы state не рос бесконечно.
+    state["_sent_events"] = sorted(sent_events)[-500:]
 
     if not INITIAL_NOTIFY_DONE:
         INITIAL_NOTIFY_DONE = True
