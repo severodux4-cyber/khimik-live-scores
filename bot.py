@@ -67,10 +67,27 @@ def get(url):
         _last_request = time.monotonic()
 
 
+def telegram_keyboard():
+    return {
+        "keyboard": [
+            [{"text": "🏒 Сегодня"}, {"text": "📅 Ближайшие"}],
+            [{"text": "🥅 Результаты"}, {"text": "📊 Статус"}],
+            [{"text": "ℹ️ Помощь"}],
+        ],
+        "resize_keyboard": True,
+        "is_persistent": True,
+        "one_time_keyboard": False,
+    }
+
+
 def telegram_to(chat_id, text):
     r = session.post(
         f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
-        data={"chat_id": str(chat_id), "text": text},
+        data={
+            "chat_id": str(chat_id),
+            "text": text,
+            "reply_markup": json.dumps(telegram_keyboard(), ensure_ascii=False),
+        },
         timeout=15,
     )
     r.raise_for_status()
@@ -137,6 +154,15 @@ def process_telegram_commands(users):
             continue
 
         raw_command = (message.get("text") or "").strip()
+
+        button_commands = {
+            "🏒 Сегодня": "/today",
+            "📅 Ближайшие": "/next",
+            "🥅 Результаты": "/results",
+            "📊 Статус": "/status",
+            "ℹ️ Помощь": "/help",
+        }
+        raw_command = button_commands.get(raw_command, raw_command)
         if not raw_command:
             continue
 
