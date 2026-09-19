@@ -663,14 +663,18 @@ def main():
         return
 
     ages = discover_age_pages()
-    logging.info("Найдено возрастов: %d", len(ages))
+    logging.info("СТАТИСТИКА: найдено возрастов: %d", len(ages))
 
     current = {}
     khimik_ages = set()
+    total_groups = 0
+    total_group_matches = 0
+    total_khimik_matches = 0
 
     for age, _label, age_url in ages:
         try:
             groups = discover_group_pages(age_url)
+            total_groups += len(groups)
             logging.info("%s: групп %d", age, len(groups))
         except requests.RequestException as e:
             logging.warning("Ошибка возраста %s: %s", age, e)
@@ -687,6 +691,7 @@ def main():
                     len(all_links),
                     khimik_group,
                 )
+                total_group_matches += len(all_links)
 
                 if not khimik_group:
                     continue
@@ -705,6 +710,8 @@ def main():
                 else:
                     # Для 2017 — ВСЯ группа.
                     links = all_links
+
+                total_khimik_matches += len(links)
 
                 # Для одного запуска не делаем параллельных запросов.
                 # ФХМО отвечает 503 при агрессивном параллелизме.
@@ -812,6 +819,8 @@ def main():
             elif old_status.startswith("⏱") and new_status == "🏁 Матч завершён":
                 changes.append((key, old, match, "finish"))
 
+    logging.info("СТАТИСТИКА: найдено изменений: %d", len(changes))
+
     def sort_key(row):
         _key, _old, match, _event = row
         try:
@@ -828,6 +837,7 @@ def main():
         return age_key, dt_key
 
     initial_mode = not INITIAL_NOTIFY_DONE
+    notifications_sent = 0
 
     for key, old, match, event in sorted(changes, key=sort_key):
         if event == "home_goal":
@@ -867,6 +877,8 @@ def main():
             # После первичной рассылки уведомления получают все активные подписчики.
             broadcast(message, users)
 
+        notifications_sent += 1
+
         logging.info(
             "ОТПРАВЛЕНО: %s %s — %s: %s → %s (%s)",
             match["age"],
@@ -884,6 +896,8 @@ def main():
     if not INITIAL_NOTIFY_DONE:
         INITIAL_NOTIFY_DONE = True
         logging.info("INITIAL_NOTIFY: первая рассылка завершена, дальше только изменения счёта")
+
+    logging.info("СТАТИСТИКА: уведомлений отправлено: %d", notifications_sent)
 
     save_state(state)
     save_users(users)
