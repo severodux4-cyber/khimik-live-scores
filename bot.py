@@ -818,6 +818,8 @@ def main():
 
             elif old_status.startswith("⏱") and new_status == "🏁 Матч завершён":
                 changes.append((key, old, match, "finish"))
+            # Остальные изменения текста/периода внутри live-статуса
+            # не считаются отдельным событием и уведомление не отправляют.
 
     logging.info("СТАТИСТИКА: найдено изменений: %d", len(changes))
 
@@ -861,13 +863,19 @@ def main():
         else:
             header = None
 
-        body = (
-            f"🏒 Химик Воскресенск {match['age']}\n"
-            f"🕒 {match['date_time']}\n"
-            f"{match['home']} — {match['away']}\n"
-            f"🔥 Счёт: {match['score']}\n"
-            f"{match['status']}"
-        )
+        if event == "finish":
+            body = (
+                f"{match['home']} — {match['away']}\n"
+                f"🥅 {match['score']}"
+            )
+        else:
+            body = (
+                f"🏒 Химик Воскресенск {match['age']}\n"
+                f"🕒 {match['date_time']}\n"
+                f"{match['home']} — {match['away']}\n"
+                f"🔥 Счёт: {match['score']}\n"
+                f"{match['status']}"
+            )
         message = f"{header}\n\n{body}" if header else body
 
         if initial_mode:
