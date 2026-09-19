@@ -20,6 +20,7 @@ COMPETITION_URL = os.getenv(
 BOT_TOKEN = os.environ["BOT_TOKEN"]
 CHAT_ID = os.environ["CHAT_ID"]
 STATE_FILE = Path("state.json")
+STATE_BACKUP_FILE = Path("state.backup.json")
 USERS_FILE = Path("users.json")
 TEST_NOTIFY = os.getenv("TEST_NOTIFY", "").lower() in ("1", "true", "yes", "on")
 
@@ -216,21 +217,41 @@ def broadcast(text, users):
 def load_state():
     global INITIAL_NOTIFY_DONE
     INITIAL_NOTIFY_DONE = False
-    if not STATE_FILE.exists():
-        return {}
-    try:
-        data = json.loads(STATE_FILE.read_text(encoding="utf-8"))
+
+    def read_state(path):
+        data = json.loads(path.read_text(encoding="utf-8"))
         meta = data.get("_meta", {})
         # State v2 уже содержит актуальный baseline, но не содержит флага
         # первой рассылки. Поэтому именно один раз отправляем все уже
         # сыгранные/идущие результаты, а затем переходим в обычный режим.
         if meta.get("version") not in (STATE_VERSION, 2):
-            logging.info("STATE: старый формат, создаём новый baseline")
-            return {}
-        INITIAL_NOTIFY_DONE = bool(meta.get("initial_notify_done", False))
-        return {k: v for k, v in data.items() if k != "_meta"}
-    except Exception:
-        return {}
+            raise ValueError("неподдерживаемая версия state")
+        return bool(meta.get("initial_notify_done", False)), {
+            k: v for k, v in data.items() if k != "_meta"
+        }
+
+    if STATE_FILE.exists():
+        try:
+            INITIAL_NOTIFY_DONE, state = read_state(STATE_FILE)
+            return state
+        except Exception as e:
+            logging.warning(
+                "STATE: не удалось прочитать state.json: %s — пробуем резервную копию",
+                e,
+            )
+
+    if STATE_BACKUP_FILE.exists():
+        try:
+            INITIAL_NOTIFY_DONE, state = read_state(STATE_BACKUP_FILE)
+            logging.warning("STATE: восстановлено из state.backup.json")
+            return state
+        except Exception as e:
+            logging.warning(
+                "STATE: не удалось прочитать state.backup.json: %s",
+                e,
+            )
+
+    return {}
 
 
 def save_state(state):
@@ -241,10 +262,22 @@ def save_state(state):
         },
         **state,
     }
-    STATE_FILE.write_text(
-        json.dumps(data, ensure_ascii=False, indent=2, sort_keys=True),
-        encoding="utf-8",
-    )
+    serialized = json.dumps(data, ensure_ascii=False, indent=2, sort_keys=True)
+
+    # Сначала сохраняем последнее корректное состояние в резервную копию.
+    if STATE_FILE.exists():
+        try:
+            STATE_BACKUP_FILE.write_text(
+                STATE_FILE.read_text(encoding="utf-8"),
+                encoding="utf-8",
+            )
+        except Exception as e:
+            logging.warning(
+                "STATE: не удалось обновить state.backup.json: %s",
+                e,
+            )
+
+    STATE_FILE.write_text(serialized, encoding="utf-8")
 
 
 def norm(s):
