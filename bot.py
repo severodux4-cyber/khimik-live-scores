@@ -579,6 +579,73 @@ def parse_match(url, age, group_label):
     }
 
 
+def is_incomplete_response(state, current, khimik_ages):
+    """Не даёт частичному ответу ФХМО перезаписать нормальное состояние."""
+    if not state:
+        return False
+
+    previous_matches = [
+        value for value in state.values()
+        if isinstance(value, dict) and value.get("age")
+    ]
+    if not previous_matches:
+        return False
+
+    previous_ages = {str(value.get("age")) for value in previous_matches}
+    current_ages = {str(age) for age in khimik_ages}
+
+    # Если возраст, который раньше стабильно отслеживался, внезапно
+    # полностью исчез — считаем ответ сайта неполным.
+    missing_ages = sorted(previous_ages - current_ages)
+    if missing_ages:
+        logging.warning(
+            "ФХМО: неполный ответ — исчезли возраста: %s; state не обновляем",
+            ", ".join(missing_ages),
+        )
+        return True
+
+    previous_count = len(previous_matches)
+    current_count = len(current)
+
+    # Резкое уменьшение количества матчей обычно означает неполную
+    # выдачу сайта, а не реальное исчезновение матчей.
+    minimum_count = max(1, int(previous_count * 0.70))
+    if current_count < minimum_count:
+        logging.warning(
+            "ФХМО: неполный ответ — матчей %d вместо минимум %d из %d; state не обновляем",
+            current_count,
+            minimum_count,
+            previous_count,
+        )
+        return True
+
+    # Дополнительная защита: если по конкретному возрасту пропала большая
+    # часть матчей, не принимаем такой ответ за нормальное состояние.
+    previous_by_age = {}
+    current_by_age = {}
+    for value in previous_matches:
+        age = str(value.get("age"))
+        previous_by_age[age] = previous_by_age.get(age, 0) + 1
+    for value in current.values():
+        if isinstance(value, dict) and value.get("age"):
+            age = str(value.get("age"))
+            current_by_age[age] = current_by_age.get(age, 0) + 1
+
+    for age, previous_age_count in previous_by_age.items():
+        if previous_age_count >= 4:
+            current_age_count = current_by_age.get(age, 0)
+            if current_age_count < int(previous_age_count * 0.50):
+                logging.warning(
+                    "ФХМО: неполный ответ — возраст %s: матчей %d вместо %d; state не обновляем",
+                    age,
+                    current_age_count,
+                    previous_age_count,
+                )
+                return True
+
+    return False
+
+
 def main():
     global INITIAL_NOTIFY_DONE
 
@@ -698,6 +765,12 @@ def main():
         ", ".join(sorted(khimik_ages)) if khimik_ages else "не найдено"
     )
     logging.info("Отслеживаемых матчей: %d", len(current))
+
+    if is_incomplete_response(state, current, khimik_ages):
+        logging.warning(
+            "ФХМО: текущий запуск пропущен из-за неполного ответа сайта"
+        )
+        return
 
     # Первый запуск после установки v5: отправляем ВСЕ уже сыгранные
     # и текущие матчи. Будущие матчи не отправляем. После успешной
