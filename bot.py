@@ -24,7 +24,8 @@ TEST_NOTIFY = os.getenv("TEST_NOTIFY", "").lower() in ("1", "true", "yes", "on")
 
 MOSCOW = ZoneInfo("Europe/Moscow")
 REQUEST_DELAY = 0.65
-STATE_VERSION = 2
+STATE_VERSION = 3
+INITIAL_NOTIFY_DONE = False
 # После начала матча считаем его завершённым, если страница не даёт
 # признаков текущей игры и прошло достаточно времени для полного матча.
 MATCH_DURATION_GRACE_MINUTES = 120
@@ -74,23 +75,33 @@ def telegram(text):
 
 
 def load_state():
+    global INITIAL_NOTIFY_DONE
+    INITIAL_NOTIFY_DONE = False
     if not STATE_FILE.exists():
         return {}
     try:
         data = json.loads(STATE_FILE.read_text(encoding="utf-8"))
-        # Старый state содержит ошибочные счёты (30:16, 22:20 и т.п.),
-        # полученные предыдущей версией парсера. Один раз автоматически
-        # создаём чистый baseline, чтобы бот не рассылал ложные изменения.
-        if data.get("_meta", {}).get("version") != STATE_VERSION:
+        meta = data.get("_meta", {})
+        # State v2 уже содержит актуальный baseline, но не содержит флага
+        # первой рассылки. Поэтому именно один раз отправляем все уже
+        # сыгранные/идущие результаты, а затем переходим в обычный режим.
+        if meta.get("version") not in (STATE_VERSION, 2):
             logging.info("STATE: старый формат, создаём новый baseline")
             return {}
+        INITIAL_NOTIFY_DONE = bool(meta.get("initial_notify_done", False))
         return {k: v for k, v in data.items() if k != "_meta"}
     except Exception:
         return {}
 
 
 def save_state(state):
-    data = {"_meta": {"version": STATE_VERSION}, **state}
+    data = {
+        "_meta": {
+            "version": STATE_VERSION,
+            "initial_notify_done": INITIAL_NOTIFY_DONE,
+        },
+        **state,
+    }
     STATE_FILE.write_text(
         json.dumps(data, ensure_ascii=False, indent=2, sort_keys=True),
         encoding="utf-8",
@@ -457,13 +468,21 @@ def main():
     )
     logging.info("Отслеживаемых матчей: %d", len(current))
 
-    # Сначала формируем список изменений, затем сортируем его:
-    # 1) год рождения; 2) дата/время матча.
+    # Первый запуск после установки v5: отправляем ВСЕ уже сыгранные
+    # и текущие матчи. Будущие матчи не отправляем. После успешной
+    # рассылки включается обычный режим "только изменение счёта".
     changes = []
-    for key, match in current.items():
-        old = state.get(key)
-        if old and old.get("score") != match["score"]:
-            changes.append((key, old, match))
+    if not INITIAL_NOTIFY_DONE:
+        logging.info("INITIAL_NOTIFY: отправляем все уже сыгранные и текущие результаты")
+        for key, match in current.items():
+            if match.get("status") == "⏳ Матч не начался":
+                continue
+            changes.append((key, {"score": "—"}, match))
+    else:
+        for key, match in current.items():
+            old = state.get(key)
+            if old and old.get("score") != match["score"]:
+                changes.append((key, old, match))
 
     def sort_key(row):
         _key, _old, match = row
@@ -498,9 +517,13 @@ def main():
             match["score"],
         )
 
-    # State обновляем после формирования/отправки изменений.
+    # State обновляем после успешной отправки всех сообщений.
     for key, match in current.items():
         state[key] = match
+
+    if not INITIAL_NOTIFY_DONE:
+        INITIAL_NOTIFY_DONE = True
+        logging.info("INITIAL_NOTIFY: первая рассылка завершена, дальше только изменения счёта")
 
     save_state(state)
 
