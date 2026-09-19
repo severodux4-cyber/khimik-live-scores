@@ -49,7 +49,7 @@ def get(url):
     global last_get
 
     # Не долбим ФХМО слишком быстро.
-    wait = 1.0 - (time.monotonic() - last_get)
+    wait = 0.4 - (time.monotonic() - last_get)
     if wait > 0:
         time.sleep(wait)
 
@@ -137,14 +137,12 @@ def discover_group_pages(age_url):
 
 def discover_match_links(group_url):
     """
-    Возвращает:
-      all_links    — все ссылки на матчи группы
-      khimik_links — ссылки на матчи, где в блоке матча встречается Химик.
+    Возвращает ссылки всех матчей группы и ссылки матчей Химика.
 
-    Главное отличие от старой версии:
-    наличие Химика в группе определяется по ВСЕЙ странице,
-    а не по конкретному <tr>. Для отдельного матча ищем Химик
-    в нескольких уровнях DOM вокруг ссылки "Обзор матча".
+    Для определения конкретного матча не используем всю страницу:
+    поднимаемся от ссылки на матч по DOM и выбираем самый маленький
+    контейнер, в котором одновременно есть дата/время и название
+    Химика. Если такой контейнер не найден, матч останется в all_links.
     """
     soup = BeautifulSoup(get(group_url), "html.parser")
 
@@ -158,36 +156,37 @@ def discover_match_links(group_url):
 
         all_links.append(href)
 
-        # Ищем ближайший контейнер, описывающий именно этот матч.
         node = a
-        found_khimik = False
+        found = False
 
-        for _ in range(10):
+        for _ in range(8):
             node = node.parent
             if node is None:
                 break
 
             text = norm(node.get_text(" ", strip=True))
-
-            # Контейнер матча обычно содержит "Обзор матча".
-            # Не поднимаемся до всей страницы, иначе Химик будет найден
-            # у каждого матча группы.
-            if len(text) > 5000:
+            if not text or len(text) > 1800:
                 break
 
-            if "Химик Воскресенск" in text:
-                found_khimik = True
+            has_khimik = "Химик Воскресенск" in text
+            has_match_marker = (
+                "Обзор матча" in text
+                or re.search(r"\b\d{1,2}\.\d{1,2}\.\d{4}\b", text)
+                or re.search(r"\b\d{1,2}:\d{2}\b", text)
+            )
+
+            if has_khimik and has_match_marker:
+                khimik_links.append(href)
+                found = True
                 break
 
-        if found_khimik:
-            khimik_links.append(href)
+        if found:
+            continue
 
-    # Надёжное определение: участвует ли Химик в этой группе вообще.
     group_text = norm(soup.get_text(" ", strip=True))
     khimik_in_group = "Химик Воскресенск" in group_text
 
     return unique(all_links), unique(khimik_links), khimik_in_group
-
 
 def parse_match(match_url, age, group_label):
     soup = BeautifulSoup(get(match_url), "html.parser")
@@ -233,22 +232,55 @@ def parse_match(match_url, age, group_label):
             else:
                 return None
 
-    score_candidates = re.findall(
-        r"(?<!\d)(\d{1,2}):(\d{1,2})(?!\d)",
-        page_text,
+    score_re = re.compile(r"(?<!\d)(\d{1,2}):(\d{1,2})(?!\d)")
+
+    def valid_scores(text):
+        result = []
+        for a, b in score_re.findall(text or ""):
+            a, b = int(a), int(b)
+            if a <= 30 and b <= 30:
+                result.append((a, b))
+        return result
+
+    # 1) Приоритетно ищем счёт в блоках событий матча.
+    # ФХМО может не обновлять крупный итоговый счёт, поэтому берём
+    # последнюю накопленную пару из блока с событиями/голами.
+    event_scores = []
+
+    event_words = (
+        "гол", "шайб", "заброш", "взятие ворот",
+        "вбрасыван", "удален", "удалён"
     )
 
-    # Не считаем время матча 45:00 / 60:00 счётом.
-    scores = [
-        (int(a), int(b))
-        for a, b in score_candidates
-        if int(a) <= 30 and int(b) <= 30
-    ]
+    for tag in soup.find_all(["div", "li", "tr", "td", "p", "span"]):
+        text = norm(tag.get_text(" ", strip=True))
+        if not text or len(text) > 1200:
+            continue
+        lower = text.lower()
+        if any(word in lower for word in event_words):
+            vals = valid_scores(text)
+            if vals:
+                event_scores.extend(vals)
 
-    if not scores:
-        return None
+    if event_scores:
+        current_score = f"{event_scores[-1][0]}:{event_scores[-1][1]}"
+        score_source = "event_feed"
+    else:
+        # 2) Резерв: вся страница, но исключаем минуты/секунды матча.
+        scores = valid_scores(page_text)
+        if not scores:
+            return None
+        current_score = f"{scores[-1][0]}:{scores[-1][1]}"
+        score_source = "page"
 
-    current_score = f"{scores[-1][0]}:{scores[-1][1]}"
+    logging.info(
+        "MATCH %s | %s — %s | score=%s | source=%s",
+        match_url.rsplit("/", 2)[-2] if "/matches/" in match_url else match_url,
+        home,
+        away,
+        current_score,
+        score_source,
+    )
 
     dt = ""
     m = re.search(
@@ -404,6 +436,22 @@ def main():
                 match["home"],
                 match["away"],
                 old.get("score"),
+                match["score"],
+            )
+        elif old:
+            logging.info(
+                "Без изменения: %s | %s — %s | %s",
+                match["age"],
+                match["home"],
+                match["away"],
+                match["score"],
+            )
+        else:
+            logging.info(
+                "Первичная запись: %s | %s — %s | %s",
+                match["age"],
+                match["home"],
+                match["away"],
                 match["score"],
             )
 
