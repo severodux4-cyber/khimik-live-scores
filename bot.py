@@ -805,10 +805,17 @@ def main():
                 try:
                     oh, oa = map(int, old_score.split(":"))
                     nh, na = map(int, new_score.split(":"))
-                    if nh == oh + 1 and na == oa:
+                    home_delta = nh - oh
+                    away_delta = na - oa
+                    if home_delta == 1 and away_delta == 0:
                         event = "home_goal"
-                    elif na == oa + 1 and nh == oh:
+                    elif away_delta == 1 and home_delta == 0:
                         event = "away_goal"
+                    # При нескольких голах между двумя проверками
+                    # сообщаем изменение итогового счёта, не выдумывая
+                    # отдельные события.
+                    elif home_delta > 0 or away_delta > 0:
+                        event = "score"
                 except Exception:
                     pass
                 changes.append((key, old, match, event))
@@ -859,6 +866,9 @@ def main():
 
         elif event == "finish":
             header = "🏁 МАТЧ ЗАВЕРШЁН"
+
+        elif event == "score":
+            header = "🥅 ИЗМЕНЕНИЕ СЧЁТА"
 
         else:
             header = None
