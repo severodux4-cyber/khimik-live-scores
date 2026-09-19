@@ -643,7 +643,7 @@ def main():
                 changes.append((key, old, match, "finish"))
 
     def sort_key(row):
-        _key, _old, match = row
+        _key, _old, match, _event = row
         try:
             age_key = int(match["age"])
         except Exception:
