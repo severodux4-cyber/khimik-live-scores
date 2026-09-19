@@ -23,7 +23,11 @@ STATE_FILE = Path("state.json")
 TEST_NOTIFY = os.getenv("TEST_NOTIFY", "").lower() in ("1", "true", "yes", "on")
 
 MOSCOW = ZoneInfo("Europe/Moscow")
-REQUEST_DELAY = 0.55
+REQUEST_DELAY = 0.65
+STATE_VERSION = 2
+# После начала матча считаем его завершённым, если страница не даёт
+# признаков текущей игры и прошло достаточно времени для полного матча.
+MATCH_DURATION_GRACE_MINUTES = 120
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 
@@ -73,14 +77,22 @@ def load_state():
     if not STATE_FILE.exists():
         return {}
     try:
-        return json.loads(STATE_FILE.read_text(encoding="utf-8"))
+        data = json.loads(STATE_FILE.read_text(encoding="utf-8"))
+        # Старый state содержит ошибочные счёты (30:16, 22:20 и т.п.),
+        # полученные предыдущей версией парсера. Один раз автоматически
+        # создаём чистый baseline, чтобы бот не рассылал ложные изменения.
+        if data.get("_meta", {}).get("version") != STATE_VERSION:
+            logging.info("STATE: старый формат, создаём новый baseline")
+            return {}
+        return {k: v for k, v in data.items() if k != "_meta"}
     except Exception:
         return {}
 
 
 def save_state(state):
+    data = {"_meta": {"version": STATE_VERSION}, **state}
     STATE_FILE.write_text(
-        json.dumps(state, ensure_ascii=False, indent=2, sort_keys=True),
+        json.dumps(data, ensure_ascii=False, indent=2, sort_keys=True),
         encoding="utf-8",
     )
 
@@ -275,25 +287,43 @@ def parse_datetime(soup, page_text):
 
 
 def parse_status(soup, page_text, scheduled_dt):
+    """Определяет статус без ложного '3 период' из названий вкладок.
+
+    На странице ФХМО текст '3 период' может присутствовать просто как
+    название вкладки ленты, даже после окончания матча. Поэтому сначала
+    смотрим на фактические события игры, а затем на время от начала.
+    """
     now = datetime.now(MOSCOW)
 
-    # Самое важное: будущий матч НИКОГДА не может быть "завершён".
     if scheduled_dt and scheduled_dt > now:
         return "⏳ Матч не начался"
 
-    # Явно указан текущий период.
-    if re.search(r"\bТретий период\b", page_text, re.I):
-        return "⏱ 3 период"
-    if re.search(r"\bВторой период\b", page_text, re.I):
-        return "⏱ 2 период"
-    if re.search(r"\b(?:Первый|1) период\b", page_text, re.I):
-        return "⏱ 1 период"
+    # Берём период из фактических событий, а НЕ из текста кнопок-вкладок.
+    event_periods = []
+    for node in soup.select(".feed-period-name"):
+        value = norm(node.get_text(" ", strip=True)).lower()
+        if value in ("1 период", "2 период", "3 период"):
+            event_periods.append(value)
 
-    # Если счёт уже ненулевой и период на странице не указан,
-    # НЕ называем матч завершённым автоматически.
-    # Иначе 0:0 будущих матчей снова будут ошибочно завершены.
-    if scheduled_dt and scheduled_dt <= now:
-        return "⏱ Матч идёт / статус ФХМО не указан"
+    latest_period = event_periods[-1] if event_periods else None
+
+    # Если матч начался недавно, считаем его идущим.
+    # Это покрывает, например, матч 13:15 в момент 14:04.
+    if scheduled_dt:
+        elapsed = (now - scheduled_dt).total_seconds() / 60
+        if elapsed < MATCH_DURATION_GRACE_MINUTES:
+            if latest_period == "3 период":
+                return "⏱ 3 период"
+            if latest_period == "2 период":
+                return "⏱ 2 период"
+            if latest_period == "1 период":
+                return "⏱ 1 период"
+            return "⏱ Матч идёт"
+
+        # После двух часов после стартового времени при наличии результата
+        # считаем матч завершённым. В отличие от старой версии, наличие
+        # текста '3 период' в вкладке больше не мешает этому.
+        return "🏁 Матч завершён"
 
     return "ℹ️ Статус не определён"
 
@@ -427,27 +457,49 @@ def main():
     )
     logging.info("Отслеживаемых матчей: %d", len(current))
 
+    # Сначала формируем список изменений, затем сортируем его:
+    # 1) год рождения; 2) дата/время матча.
+    changes = []
     for key, match in current.items():
         old = state.get(key)
-
         if old and old.get("score") != match["score"]:
-            telegram(
-                f"🏒 Химик Воскресенск {match['age']}\n"
-                f"📅 {match['date_time']}\n"
-                f"{match['home']} — {match['away']}\n"
-                f"🥅 {match['score']}\n"
-                f"{match['status']}"
-            )
+            changes.append((key, old, match))
 
-            logging.info(
-                "ОТПРАВЛЕНО: %s %s — %s: %s → %s",
-                match["age"],
-                match["home"],
-                match["away"],
-                old.get("score"),
-                match["score"],
+    def sort_key(row):
+        _key, _old, match = row
+        try:
+            age_key = int(match["age"])
+        except Exception:
+            age_key = 9999
+        try:
+            dt_key = datetime.strptime(
+                match.get("date_time", "31.12.9999 23:59"),
+                "%d.%m.%Y %H:%M",
             )
+        except Exception:
+            dt_key = datetime.max
+        return age_key, dt_key
 
+    for key, old, match in sorted(changes, key=sort_key):
+        telegram(
+            f"🏒 Химик Воскресенск {match['age']}\n"
+            f"📅 {match['date_time']}\n"
+            f"{match['home']} — {match['away']}\n"
+            f"🥅 {match['score']}\n"
+            f"{match['status']}"
+        )
+
+        logging.info(
+            "ОТПРАВЛЕНО: %s %s — %s: %s → %s",
+            match["age"],
+            match["home"],
+            match["away"],
+            old.get("score"),
+            match["score"],
+        )
+
+    # State обновляем после формирования/отправки изменений.
+    for key, match in current.items():
         state[key] = match
 
     save_state(state)
