@@ -28,6 +28,7 @@ MOSCOW = ZoneInfo("Europe/Moscow")
 REQUEST_DELAY = 0.65
 STATE_VERSION = 3
 INITIAL_NOTIFY_DONE = False
+SERVICE_NOTICE_SENT = False
 # После начала матча считаем его завершённым, если страница не даёт
 # признаков текущей игры и прошло достаточно времени для полного матча.
 MATCH_DURATION_GRACE_MINUTES = 120
@@ -215,12 +216,13 @@ def broadcast(text, users):
 
 
 def load_state():
-    global INITIAL_NOTIFY_DONE
+    global INITIAL_NOTIFY_DONE, SERVICE_NOTICE_SENT
     INITIAL_NOTIFY_DONE = False
 
     def read_state(path):
         data = json.loads(path.read_text(encoding="utf-8"))
         meta = data.get("_meta", {})
+        SERVICE_NOTICE_SENT = bool(meta.get("service_notice_sent", False))
         # State v2 уже содержит актуальный baseline, но не содержит флага
         # первой рассылки. Поэтому именно один раз отправляем все уже
         # сыгранные/идущие результаты, а затем переходим в обычный режим.
@@ -259,6 +261,7 @@ def save_state(state):
         "_meta": {
             "version": STATE_VERSION,
             "initial_notify_done": INITIAL_NOTIFY_DONE,
+            "service_notice_sent": SERVICE_NOTICE_SENT,
         },
         **state,
     }
@@ -667,6 +670,23 @@ def main():
     state = load_state()
     users = load_users()
     process_telegram_commands(users)
+
+    # Одноразовое служебное сообщение всем активным подписчикам.
+    if not SERVICE_NOTICE_SENT:
+        service_notice = (
+            "🛠 Система обновлена!\n\n"
+            "Уважаемые пользователи!\n"
+            "Мы структурировали и оптимизировали уведомления, "
+            "повысили отказоустойчивость и скорость работы бота.\n\n"
+            "Теперь всё ещё стабильнее и быстрее ⚡\n\n"
+            "Оставайтесь с нами! 🏒💙💛"
+        )
+        try:
+            broadcast(service_notice, users)
+            SERVICE_NOTICE_SENT = True
+            logging.info("SERVICE_NOTICE: одноразовая рассылка выполнена")
+        except Exception as e:
+            logging.warning("SERVICE_NOTICE: рассылка не выполнена: %s", e)
 
     if TEST_NOTIFY:
         telegram(
