@@ -853,7 +853,7 @@ def main():
                 header = f"🥅 ГОЛ — {match['away']}"
 
         elif event == "start":
-            header = "🟢 МАТЧ НАЧАЛСЯ"
+            header = "🟢 МАТЧ НАЧАЛСЯ!"
 
         elif event == "finish":
             header = "🏁 МАТЧ ЗАВЕРШЁН"
