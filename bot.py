@@ -251,6 +251,48 @@ def unique(seq):
     return out
 
 
+def is_suspicious_update(old, new):
+    """
+    Защищает state.json от временных/неполных данных ФХМО.
+
+    Подозрительными считаем:
+      - уменьшение счёта одной из команд;
+      - возврат ненулевого счёта в 0:0;
+      - возврат завершённого матча обратно в live/другой статус.
+
+    Нормальные изменения (например 4:0 -> 5:0 или 4:0 -> 4:1)
+    пропускаются.
+    """
+    if not isinstance(old, dict) or not isinstance(new, dict):
+        return False
+
+    old_score = old.get("score", "")
+    new_score = new.get("score", "")
+
+    try:
+        old_home, old_away = map(int, old_score.split(":"))
+        new_home, new_away = map(int, new_score.split(":"))
+    except (ValueError, AttributeError):
+        return False
+
+    # Счёт не может уменьшиться в обычном ходе матча.
+    if new_home < old_home or new_away < old_away:
+        return True
+
+    # Сайт не должен возвращать уже ненулевой счёт к 0:0.
+    if (old_home > 0 or old_away > 0) and new_home == 0 and new_away == 0:
+        return True
+
+    old_status = old.get("status", "")
+    new_status = new.get("status", "")
+
+    # Уже завершённый матч не должен снова становиться текущим.
+    if old_status == "🏁 Матч завершён" and new_status.startswith("⏱"):
+        return True
+
+    return False
+
+
 def age_from(text):
     m = re.search(r"\b(20(?:1[0-7]))\s*г\.?\s*р\.?", text or "", re.I)
     return m.group(1) if m else None
@@ -567,6 +609,19 @@ def main():
                                 and norm(match["away"]).lower() != "химик воскресенск"
                             ):
                                 continue
+
+                        old_match = state.get(link)
+                        if old_match and is_suspicious_update(old_match, match):
+                            logging.warning(
+                                "STATE: подозрительный откат %s | %s → %s | %s → %s — сохраняем старое состояние",
+                                link.rstrip("/").split("/")[-1],
+                                old_match.get("score"),
+                                match.get("score"),
+                                old_match.get("status"),
+                                match.get("status"),
+                            )
+                            current[link] = old_match
+                            continue
 
                         current[link] = match
 
