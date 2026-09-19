@@ -512,16 +512,26 @@ def parse_datetime(soup, page_text):
 
 
 def parse_status(soup, page_text, scheduled_dt):
-    """Определяет статус без ложного '3 период' из названий вкладок.
-
-    На странице ФХМО текст '3 период' может присутствовать просто как
-    название вкладки ленты, даже после окончания матча. Поэтому сначала
-    смотрим на фактические события игры, а затем на время от начала.
-    """
+    """Определяет статус матча с приоритетом реальных признаков завершения."""
     now = datetime.now(MOSCOW)
 
     if scheduled_dt and scheduled_dt > now:
         return "⏳ Матч не начался"
+
+    # Сначала ищем явные признаки завершения именно в содержимом страницы,
+    # а не в названиях вкладок/периодов.
+    text_lower = norm(page_text).lower()
+
+    finish_markers = (
+        "матч завершен",
+        "матч завершён",
+        "игра завершена",
+        "игра завершена",
+        "окончание матча",
+        "матч окончен",
+    )
+
+    has_finish_marker = any(marker in text_lower for marker in finish_markers)
 
     # Берём период из фактических событий, а НЕ из текста кнопок-вкладок.
     event_periods = []
@@ -532,10 +542,14 @@ def parse_status(soup, page_text, scheduled_dt):
 
     latest_period = event_periods[-1] if event_periods else None
 
+    # Явный признак завершения имеет приоритет над fallback по времени.
+    if has_finish_marker:
+        return "🏁 Матч завершён"
+
     # Если матч начался недавно, считаем его идущим.
-    # Это покрывает, например, матч 13:15 в момент 14:04.
     if scheduled_dt:
         elapsed = (now - scheduled_dt).total_seconds() / 60
+
         if elapsed < MATCH_DURATION_GRACE_MINUTES:
             if latest_period == "3 период":
                 return "⏱ 3 период"
@@ -545,9 +559,8 @@ def parse_status(soup, page_text, scheduled_dt):
                 return "⏱ 1 период"
             return "⏱ Матч идёт"
 
-        # После двух часов после стартового времени при наличии результата
-        # считаем матч завершённым. В отличие от старой версии, наличие
-        # текста '3 период' в вкладке больше не мешает этому.
+        # Fallback: после двух часов считаем матч завершённым,
+        # если сайт не сообщил явный другой статус.
         return "🏁 Матч завершён"
 
     return "ℹ️ Статус не определён"
