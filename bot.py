@@ -443,61 +443,29 @@ def extract_teams(soup):
 
 
 def parse_score(soup):
-    # 1. Live-счёт из событий голов.
-    # ФХМО может оставить .final-score = 0:0, пока лента событий уже
-    # содержит актуальный счёт. Не привязываемся жёстко к одному набору
-    # CSS-классов: ищем любой popup-title с текстом "Гол" и берём
-    # ближайший родительский блок события.
-    goal_scores = []
-
-    for title_node in soup.select(".popup-title"):
-        title = norm(title_node.get_text(" ", strip=True)).lower()
-        if "гол" not in title:
-            continue
-
-        node = title_node
-        event_text = ""
-        for _ in range(6):
-            if node is None:
-                break
-            event_text = norm(node.get_text(" ", strip=True))
-            if re.search(r"(?<!\d)\d{1,2}\s*:\s*\d{1,2}(?!\d)", event_text):
-                break
-            node = node.parent
-
-        scores_in_event = re.findall(
-            r"(?<!\d)(\d{1,2})\s*:\s*(\d{1,2})(?!\d)",
-            event_text,
-        )
-        if scores_in_event:
-            home, away = map(int, scores_in_event[-1])
-            goal_scores.append((home, away))
-
-    # Если конкретная разметка popup-title изменилась, пробуем сами
-    # блоки событий cub-event. Это запасной путь для live-матчей.
-    if not goal_scores:
-        for node in soup.select(".cub-event"):
-            text = norm(node.get_text(" ", strip=True))
-            if "гол" not in text.lower():
-                continue
-            scores_in_event = re.findall(
-                r"(?<!\d)(\d{1,2})\s*:\s*(\d{1,2})(?!\d)",
-                text,
-            )
-            if scores_in_event:
-                home, away = scores_in_event[-1]
-                goal_scores.append((int(home), int(away)))
-
-    if goal_scores:
-        home, away = goal_scores[-1]
-        return f"{home}:{away}"
-
-    # 2. Нормальный scoreboard — резервный источник.
+    # 1. Нормальный scoreboard.
     scores = []
     for x in soup.select(".final-score .team-score"):
         t = norm(x.get_text(" ", strip=True))
         if re.fullmatch(r"\d{1,2}", t):
             scores.append(int(t))
+
+    if len(scores) >= 2 and (scores[0] != 0 or scores[1] != 0):
+        return f"{scores[0]}:{scores[1]}"
+
+    # 2. Live: scoreboard может быть 0:0, а голы уже есть в событиях.
+    def goal_count(selector):
+        return sum(
+            1
+            for x in soup.select(selector)
+            if norm(x.get_text(" ", strip=True)).lower() == "гол"
+        )
+
+    home = goal_count(".cub-event.team1-event .popup-title")
+    away = goal_count(".cub-event.team2-event .popup-title")
+
+    if home or away:
+        return f"{home}:{away}"
 
     if len(scores) >= 2:
         return f"{scores[0]}:{scores[1]}"
@@ -672,7 +640,14 @@ def parse_goal_details(soup, target_score, side):
 
 
 def parse_match(url, age, group_label):
-    soup = BeautifulSoup(get(url), "html.parser")
+    # Для live-матча принудительно обходим кэш CDN/прокси:
+    # браузер уже может показывать новый счёт, а обычный GET — старый 0:0.
+    fetch_url = url
+    if "/matches/" in url:
+        separator = "&" if "?" in url else "?"
+        fetch_url = f"{url}{separator}_live={int(time.time())}"
+
+    soup = BeautifulSoup(get(fetch_url), "html.parser")
     page_text = norm(soup.get_text(" ", strip=True))
 
     home, away = extract_teams(soup)
