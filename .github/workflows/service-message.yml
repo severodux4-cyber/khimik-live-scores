@@ -1,0 +1,82 @@
+name: Service message
+
+on:
+  workflow_dispatch:
+    inputs:
+      send_message:
+        description: "Отправить сервисное сообщение"
+        required: true
+        default: false
+        type: boolean
+
+      message_text:
+        description: "Текст сообщения"
+        required: false
+        default: ""
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+
+    if: ${{ inputs.send_message == true }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Send message to Telegram
+        env:
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          MESSAGE_TEXT: ${{ inputs.message_text }}
+        run: |
+          python - <<'PY'
+          import os
+          import json
+          import urllib.request
+          import urllib.parse
+
+          bot_token = os.environ["BOT_TOKEN"]
+          message = os.environ["MESSAGE_TEXT"]
+
+          if not message.strip():
+              raise SystemExit("Ошибка: текст сообщения пустой")
+
+          with open("users.json", "r", encoding="utf-8") as f:
+              data = json.load(f)
+
+          users = data.get("users", {})
+
+          active_users = [
+              chat_id
+              for chat_id, info in users.items()
+              if info.get("active", False)
+          ]
+
+          print(f"Активных пользователей: {len(active_users)}")
+
+          url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+
+          for chat_id in active_users:
+              payload = urllib.parse.urlencode({
+                  "chat_id": chat_id,
+                  "text": message
+              }).encode("utf-8")
+
+              try:
+                  request = urllib.request.Request(
+                      url,
+                      data=payload,
+                      method="POST"
+                  )
+
+                  with urllib.request.urlopen(request, timeout=30) as response:
+                      result = response.read().decode("utf-8")
+                      print(f"{chat_id}: {result}")
+
+              except Exception as e:
+                  print(f"{chat_id}: ошибка отправки: {e}")
+          PY
