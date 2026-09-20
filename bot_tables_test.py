@@ -235,20 +235,35 @@ def send_test_tables():
                     f"🏒 ХИМИК ВОСКРЕСЕНСК {age}",
                     f"📊 ТАБЛИЦА — {group_label}",
                     "",
-                    "Место | Команда | И | В | ОТВ | П | ОТП | БВ | БП | ШЗ | ШП | Р | О",
                 ]
 
+                medals = {1: "🥇", 2: "🥈", 3: "🥉"}
+
                 for row in standings:
-                    marker = "🏒 " if "химик воскресенск" in row["team"].lower() else ""
+                    is_khimik = "химик воскресенск" in row["team"].lower()
+                    prefix = "🏒 " if is_khimik else ""
+                    place_mark = medals.get(row["place"], str(row["place"]) + ".")
+                    team_name = f"{prefix}{row['team']}"
+
+                    lines.append(f"{place_mark} {team_name}")
                     lines.append(
-                        f"{row['place']}. {marker}{row['team']} | "
-                        f"{row['games']} | {row['wins']} | {row['ot_wins']} | "
-                        f"{row['losses']} | {row['ot_losses']} | {row['so_wins']} | "
-                        f"{row['so_losses']} | {row['scored']} | {row['conceded']} | "
-                        f"{row['diff']:+d} | {row['points']}"
+                        f"   Игр: {row['games']} | В: {row['wins']} | "
+                        f"ОТВ: {row['ot_wins']} | П: {row['losses']} | "
+                        f"ОТП: {row['ot_losses']}"
                     )
 
-                message = "\n".join(lines)
+                    if row["so_wins"] or row["so_losses"]:
+                        lines.append(
+                            f"   Буллиты: {row['so_wins']}:{row['so_losses']}"
+                        )
+
+                    lines.append(
+                        f"   Шайбы: {row['scored']}:{row['conceded']} | "
+                        f"Разница: {row['diff']:+d} | Очки: {row['points']}"
+                    )
+                    lines.append("")
+
+                message = "\n".join(lines).rstrip()
                 telegram(message)
                 sent += 1
                 logging.info("TABLE TEST: отправлена %s %s", age, group_label)
