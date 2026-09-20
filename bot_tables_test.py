@@ -247,10 +247,14 @@ def send_test_tables():
 
                     lines.append(f"{place_mark} {team_name}")
                     lines.append(
-                        f"   Игр: {row['games']} | В: {row['wins']} | "
-                        f"ОТВ: {row['ot_wins']} | П: {row['losses']} | "
-                        f"ОТП: {row['ot_losses']}"
+                        f"   Игр: {row['games']} | Побед: {row['wins']} | "
+                        f"Поражений: {row['losses']}"
                     )
+
+                    if row["ot_wins"] or row["ot_losses"]:
+                        lines.append(
+                            f"   Овертайм: побед {row['ot_wins']}, поражений {row['ot_losses']}"
+                        )
 
                     if row["so_wins"] or row["so_losses"]:
                         lines.append(
