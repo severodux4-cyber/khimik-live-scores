@@ -2,7 +2,7 @@ name: Khimik live scores
 
 on:
   schedule:
-     - cron: "*/3 5-16 * * 6,0"
+    - cron: "*/3 5-16 * * 6,0"
     - cron: "0 17 * * 6,0" 
   workflow_dispatch:
     inputs:
