@@ -636,7 +636,11 @@ def parse_goal_details(soup, target_score, side):
                 value = norm(node.get_text(" ", strip=True)).strip("() ")
                 if value:
                     result.append(value.replace("\xa0", " "))
-        return result
+
+        # В разметке ФХМО один и тот же ассист иногда встречается
+        # несколько раз в скрытых/дублирующих элементах.
+        # В уведомлении каждого ассистента показываем только один раз.
+        return unique(result)
 
     for row in soup.select(".evrow"):
         score = parse_score_from_row(row)
