@@ -108,66 +108,95 @@ def discover_group_pages(age_url):
 
 
 def parse_standings(soup):
-    """Разбирает таблицу результатов группы ФХМО."""
-    candidates = []
+    """Разбирает блок «Таблица результатов» ФХМО.
 
-    for table in soup.find_all("table"):
-        rows = table.find_all("tr")
-        parsed = []
+    На странице ФХМО это не обычный <table>, поэтому сначала берём
+    текстовый блок страницы и извлекаем строки по 11 числовым показателям.
+    """
+    text = norm(soup.get_text(" ", strip=True))
 
-        for row in rows:
-            cells = [
-                norm(cell.get_text(" ", strip=True))
-                for cell in row.find_all(["th", "td"], recursive=False)
-            ]
-            cells = [cell for cell in cells if cell]
+    # Нормализуем неразрывные пробелы и ищем начало таблицы.
+    text = text.replace("\xa0", " ")
+    start_marker = "Таблица результатов"
+    start = text.find(start_marker)
+    if start < 0:
+        return []
 
-            if len(cells) < 12:
-                continue
+    # Таблица обычно идёт после списка вкладок и перед расшифровкой колонок.
+    # Берём разумный кусок после заголовка, чтобы не захватить шахматку.
+    block = text[start:start + 20000]
 
-            stats_cells = cells[-11:]
-            if not all(re.fullmatch(r"-?\d+", cell) for cell in stats_cells):
-                continue
+    # Важный якорь: после заголовков начинаются строки вида
+    # «1 Команда 8 7 0 1 0 0 0 64 10 54 14».
+    header_pos = re.search(
+        r"\bИ\s+В\s+ОТ\s+В\s+П\s+ОТ\s+П\s+Б\s+В\s+Б\s+П\s+ШЗ\s+ШП\s+Р\s+О\b",
+        block,
+        re.I,
+    )
+    if header_pos:
+        block = block[header_pos.end():]
 
-            prefix = norm(" ".join(cells[:-11]))
-            match = re.match(r"^(\d+)\s*(.*)$", prefix)
-            if not match:
-                continue
+    # Обрезаем перед расшифровкой таблицы/следующим разделом.
+    for marker in ("И – игры", "И - игры", "Команда Image", "Команда | Image"):
+        pos = block.find(marker)
+        if pos > 0:
+            block = block[:pos]
+            break
 
-            place = int(match.group(1))
-            team = norm(match.group(2))
-            if not team or team.lower() in {"команда", "место"}:
-                continue
+    # В строке после названия команды всегда ровно 11 чисел:
+    # И, В, ОТ В, П, ОТ П, Б В, Б П, ШЗ, ШП, Р, О.
+    pattern = re.compile(
+        r"(?:^|\s)(\d+)\s+(.+?)\s+"
+        r"(-?\d+)\s+(-?\d+)\s+(-?\d+)\s+(-?\d+)\s+(-?\d+)\s+"
+        r"(-?\d+)\s+(-?\d+)\s+(-?\d+)\s+(-?\d+)\s+(-?\d+)\s+(-?\d+)"
+        r"(?=\s+\d+\s+|\s*$)",
+    )
 
-            stats = [int(value) for value in stats_cells]
-            parsed.append(
-                {
-                    "place": place,
-                    "team": team,
-                    "games": stats[0],
-                    "wins": stats[1],
-                    "ot_wins": stats[2],
-                    "losses": stats[3],
-                    "ot_losses": stats[4],
-                    "so_wins": stats[5],
-                    "so_losses": stats[6],
-                    "scored": stats[7],
-                    "conceded": stats[8],
-                    "diff": stats[9],
-                    "points": stats[10],
-                }
-            )
+    parsed = []
+    for match in pattern.finditer(block):
+        place = int(match.group(1))
+        team = norm(match.group(2))
+        if not team:
+            continue
 
-        if parsed:
-            candidates.append(parsed)
+        stats = [int(match.group(i)) for i in range(3, 14)]
+        # Защита от ложного совпадения: место должно быть положительным,
+        # команда не должна быть заголовком, а статистика должна быть
+        # похожа на реальные значения таблицы.
+        if place < 1 or team.lower() in {"команда", "место"}:
+            continue
+        if stats[0] < 0 or stats[1] < 0 or stats[3] < 0:
+            continue
 
-    # Берём таблицу, в которой явно есть Химик. Если точного совпадения
-    # нет из-за оформления названия, допускаем строку, содержащую "химик".
-    for parsed in candidates:
-        if any("химик воскресенск" in row["team"].lower() for row in parsed):
-            return sorted(parsed, key=lambda row: row["place"])
+        parsed.append({
+            "place": place,
+            "team": team,
+            "games": stats[0],
+            "wins": stats[1],
+            "ot_wins": stats[2],
+            "losses": stats[3],
+            "ot_losses": stats[4],
+            "so_wins": stats[5],
+            "so_losses": stats[6],
+            "scored": stats[7],
+            "conceded": stats[8],
+            "diff": stats[9],
+            "points": stats[10],
+        })
 
-    return []
+    # Убираем дубли и оставляем только разумную группу таблицы.
+    unique = {}
+    for row in parsed:
+        unique[row["place"]] = row
+
+    result = sorted(unique.values(), key=lambda row: row["place"])
+    if len(result) < 2:
+        return []
+
+    if not any("химик воскресенск" in row["team"].lower() for row in result):
+        return []
+
+    return result
 
 
 def send_test_tables():
