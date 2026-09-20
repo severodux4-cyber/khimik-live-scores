@@ -3,6 +3,10 @@
     "morning": "2026-09-20"
   },
   "_goal_streaks": {
+    "https://фхмо.рф/matches/m_36693/": {
+      "count": 1,
+      "last_scorer": "khimik"
+    },
     "https://фхмо.рф/matches/m_37562/": {
       "count": 0,
       "last_scorer": "opponent"
@@ -14,6 +18,7 @@
   },
   "_sent_events": [
     "m_36693:score:2:0",
+    "m_36693:score:3:0",
     "m_36693:start",
     "m_37562:finish:4:2",
     "m_37562:score:1:0",
@@ -149,7 +154,7 @@
     "date_time": "20.09.2026 12:30",
     "group": "Первая группа",
     "home": "Химик Воскресенск",
-    "score": "2:0",
+    "score": "3:0",
     "status": "⏱ Матч идёт",
     "url": "https://фхмо.рф/matches/m_36693/"
   },
