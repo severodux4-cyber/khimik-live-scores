@@ -443,24 +443,50 @@ def extract_teams(soup):
 
 
 def parse_score(soup):
-    # 1. Для live-матча приоритет отдаём последнему событию гола.
-    # ФХМО может обновить ленту событий раньше, чем .final-score.
-    # Например: scoreboard ещё 3:2, а последнее событие уже 4:2.
+    # 1. Live-счёт из событий голов.
+    # ФХМО может оставить .final-score = 0:0, пока лента событий уже
+    # содержит актуальный счёт. Не привязываемся жёстко к одному набору
+    # CSS-классов: ищем любой popup-title с текстом "Гол" и берём
+    # ближайший родительский блок события.
     goal_scores = []
-    for node in soup.select(".cub-event.team1-event, .cub-event.team2-event"):
-        title_node = node.select_one(".popup-title")
-        title = norm(title_node.get_text(" ", strip=True) if title_node else "").lower()
+
+    for title_node in soup.select(".popup-title"):
+        title = norm(title_node.get_text(" ", strip=True)).lower()
         if "гол" not in title:
             continue
 
-        text = norm(node.get_text(" ", strip=True))
+        node = title_node
+        event_text = ""
+        for _ in range(6):
+            if node is None:
+                break
+            event_text = norm(node.get_text(" ", strip=True))
+            if re.search(r"(?<!\d)\d{1,2}\s*:\s*\d{1,2}(?!\d)", event_text):
+                break
+            node = node.parent
+
         scores_in_event = re.findall(
             r"(?<!\d)(\d{1,2})\s*:\s*(\d{1,2})(?!\d)",
-            text,
+            event_text,
         )
         if scores_in_event:
-            home, away = map(int, scores_in_event[-1].split(":"))
+            home, away = map(int, scores_in_event[-1])
             goal_scores.append((home, away))
+
+    # Если конкретная разметка popup-title изменилась, пробуем сами
+    # блоки событий cub-event. Это запасной путь для live-матчей.
+    if not goal_scores:
+        for node in soup.select(".cub-event"):
+            text = norm(node.get_text(" ", strip=True))
+            if "гол" not in text.lower():
+                continue
+            scores_in_event = re.findall(
+                r"(?<!\d)(\d{1,2})\s*:\s*(\d{1,2})(?!\d)",
+                text,
+            )
+            if scores_in_event:
+                home, away = scores_in_event[-1]
+                goal_scores.append((int(home), int(away)))
 
     if goal_scores:
         home, away = goal_scores[-1]
