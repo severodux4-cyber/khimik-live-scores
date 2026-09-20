@@ -8,8 +8,8 @@
       "last_scorer": "khimik"
     },
     "https://фхмо.рф/matches/m_36749/": {
-      "count": 2,
-      "last_scorer": "khimik"
+      "count": 0,
+      "last_scorer": "opponent"
     },
     "https://фхмо.рф/matches/m_37436/": {
       "count": 0,
@@ -36,6 +36,7 @@
     "m_36749:score:1:1",
     "m_36749:score:2:1",
     "m_36749:score:4:1",
+    "m_36749:score:4:2",
     "m_36749:start",
     "m_37436:score:11:0",
     "m_37436:score:15:0",
@@ -248,8 +249,8 @@
     "date_time": "20.09.2026 15:00",
     "group": "Первая группа",
     "home": "Химик Воскресенск",
-    "score": "4:1",
-    "status": "🏁 Матч завершён",
+    "score": "4:2",
+    "status": "⏱ Матч идёт",
     "url": "https://фхмо.рф/matches/m_36749/"
   },
   "https://фхмо.рф/matches/m_36753/": {
@@ -771,6 +772,16 @@
     "score": "0:0",
     "status": "⏳ Матч не начался",
     "url": "https://фхмо.рф/matches/m_37808/"
+  },
+  "https://фхмо.рф/matches/m_37814/": {
+    "age": "2012",
+    "away": "Химик Воскресенск",
+    "date_time": "29.11.2026 00:00",
+    "group": "Первая группа",
+    "home": "Красная Машина Юниор Красногорск",
+    "score": "0:0",
+    "status": "⏳ Матч не начался",
+    "url": "https://фхмо.рф/matches/m_37814/"
   },
   "https://фхмо.рф/matches/m_37952/": {
     "age": "2013",
