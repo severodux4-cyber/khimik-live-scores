@@ -621,13 +621,19 @@ def parse_goal_details(soup, target_score, side):
                 if re.fullmatch(r"[А-ЯЁ][а-яё-]+\s+[А-ЯЁ]\.", x.strip())
             ]
 
-        result = (scorer, tuple(assists))
+        goal_time = ""
+        time_match = re.search(r"(?<!\d)(\d{1,3}:\d{2})(?!\d)", text)
+        if time_match:
+            goal_time = time_match.group(1)
+
+        result = (scorer, tuple(assists), goal_time)
         if result in seen:
             continue
         seen.add(result)
         return {
             "scorer": scorer,
             "assists": assists,
+            "time": goal_time,
         }
 
     return None
@@ -725,6 +731,115 @@ def is_incomplete_response(state, current, khimik_ages):
 
     return False
 
+
+
+def khimik_in_match(match):
+    return (
+        norm(match.get("home", "")).lower() == "химик воскресенск"
+        or norm(match.get("away", "")).lower() == "химик воскресенск"
+    )
+
+
+def match_date(match):
+    try:
+        return datetime.strptime(
+            match.get("date_time", ""),
+            "%d.%m.%Y %H:%M",
+        ).date()
+    except Exception:
+        return None
+
+
+def update_goal_streak(state, match, event):
+    """
+    Хранит серию голов Химика отдельно для каждого матча.
+    Если соперник забил — серия Химика сбрасывается.
+    """
+    streaks = state.get("_goal_streaks", {})
+    if not isinstance(streaks, dict):
+        streaks = {}
+
+    key = match.get("url", "")
+    if not key:
+        return 0
+
+    if event not in ("home_goal", "away_goal"):
+        return int(streaks.get(key, {}).get("count", 0) or 0)
+
+    khimik_home = norm(match.get("home", "")).lower() == "химик воскресенск"
+    khimik_scored = (
+        (event == "home_goal" and khimik_home)
+        or (event == "away_goal" and not khimik_home)
+    )
+
+    previous = streaks.get(key, {})
+    if not isinstance(previous, dict):
+        previous = {}
+
+    if khimik_scored:
+        if previous.get("last_scorer") == "khimik":
+            count = int(previous.get("count", 0) or 0) + 1
+        else:
+            count = 1
+        streaks[key] = {"last_scorer": "khimik", "count": count}
+        state["_goal_streaks"] = streaks
+        return count
+
+    streaks[key] = {"last_scorer": "opponent", "count": 0}
+    state["_goal_streaks"] = streaks
+    return 0
+
+
+def send_daily_digest(current, users, state, kind):
+    """Отправляет один дневной дайджест матчей Химика."""
+    now = datetime.now(MOSCOW)
+    today = now.date()
+
+    digests = state.get("_daily_digests", {})
+    if not isinstance(digests, dict):
+        digests = {}
+
+    if digests.get(kind) == today.isoformat():
+        return
+
+    matches = [
+        m for m in current.values()
+        if isinstance(m, dict)
+        and khimik_in_match(m)
+        and match_date(m) == today
+    ]
+    matches.sort(key=lambda m: m.get("date_time", "99.99.9999 99:99"))
+
+    if not matches:
+        return
+
+    if kind == "morning":
+        lines = ["🌅 МАТЧИ ХИМИКА СЕГОДНЯ!", ""]
+        for match in matches:
+            lines.extend([
+                f"🏒 Химик Воскресенск {match['age']}",
+                f"🕒 {match['date_time']}",
+                f"{match['home']} — {match['away']}",
+                "",
+            ])
+        message = "\n".join(lines).rstrip()
+    else:
+        lines = ["🌙 ИТОГИ ДНЯ ХИМИКА", ""]
+        for match in matches:
+            status = match.get("status", "")
+            lines.extend([
+                f"🏒 Химик Воскресенск {match['age']}",
+                f"🕒 {match['date_time']}",
+                f"{match['home']} — {match['away']}",
+                f"🥅 {match['score']}",
+                status,
+                "",
+            ])
+        message = "\n".join(lines).rstrip()
+
+    broadcast(message, users)
+    digests[kind] = today.isoformat()
+    state["_daily_digests"] = digests
 
 
 def event_id(match, event):
@@ -874,6 +989,10 @@ def main():
         )
         return
 
+    now_moscow = datetime.now(MOSCOW)
+    if now_moscow.hour == 9:
+        send_daily_digest(current, users, state, "morning")
+
     # Первый запуск после установки v5: отправляем ВСЕ уже сыгранные
     # и текущие матчи. Будущие матчи не отправляем. После успешной
     # рассылки включается обычный режим "только изменение счёта".
@@ -958,13 +1077,15 @@ def main():
             )
             continue
         goal_details = None
+        streak_count = 0
+        comeback = False
+
         if event in ("home_goal", "away_goal"):
-            side = "home" if event == "home_goal" else "away"
-            # Автора показываем только в матчах Химика всех возрастов.
-            if (
-                norm(match["home"]).lower() == "химик воскресенск"
-                or norm(match["away"]).lower() == "химик воскресенск"
-            ):
+            streak_count = update_goal_streak(state, match, event)
+
+            # Автора и время гола показываем только в матчах Химика всех возрастов.
+            if khimik_in_match(match):
+                side = "home" if event == "home_goal" else "away"
                 try:
                     goal_soup = BeautifulSoup(get(match["url"]), "html.parser")
                     goal_details = parse_goal_details(
@@ -974,10 +1095,25 @@ def main():
                     )
                 except Exception as e:
                     logging.warning(
-                        "GOAL: не удалось определить автора %s: %s",
+                        "GOAL: не удалось определить автора/время %s: %s",
                         match["url"],
                         e,
                     )
+
+            # Камбэк: Химик был позади и после этого гола вышел вперёд.
+            try:
+                old_home, old_away = map(int, old.get("score", "0:0").split(":"))
+                new_home, new_away = map(int, match.get("score", "0:0").split(":"))
+                khimik_home = norm(match["home"]).lower() == "химик воскресенск"
+
+                old_kh = old_home if khimik_home else old_away
+                old_opp = old_away if khimik_home else old_home
+                new_kh = new_home if khimik_home else new_away
+                new_opp = new_away if khimik_home else new_home
+
+                comeback = khimik_in_match(match) and old_kh < old_opp and new_kh > new_opp
+            except Exception:
+                comeback = False
 
         if event == "home_goal":
             if norm(match["home"]).lower() == "химик воскресенск":
@@ -1022,6 +1158,14 @@ def main():
             body += f"\n\n👤 Автор: {goal_details['scorer']}"
             if goal_details["assists"]:
                 body += f"\n🎯 Ассист: {', '.join(goal_details['assists'])}"
+            if goal_details.get("time"):
+                body += f"\n⏱ Время гола: {goal_details['time']}"
+
+        if event in ("home_goal", "away_goal") and khimik_in_match(match):
+            if streak_count >= 2:
+                body += f"\n🔥 Серия: Химик забил {streak_count} гола подряд!"
+            if comeback:
+                body += "\n🔥 КАМБЭК! Химик перевернул матч!"
 
         message = f"{header}\n\n{body}" if header else body
 
@@ -1059,6 +1203,10 @@ def main():
         logging.info("INITIAL_NOTIFY: первая рассылка завершена, дальше только изменения счёта")
 
     logging.info("СТАТИСТИКА: уведомлений отправлено: %d", notifications_sent)
+
+    now_moscow = datetime.now(MOSCOW)
+    if now_moscow.hour == 19:
+        send_daily_digest(current, users, state, "evening")
 
     save_state(state)
     save_users(users)
