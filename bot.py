@@ -443,29 +443,35 @@ def extract_teams(soup):
 
 
 def parse_score(soup):
-    # 1. Нормальный scoreboard.
+    # 1. Для live-матча приоритет отдаём последнему событию гола.
+    # ФХМО может обновить ленту событий раньше, чем .final-score.
+    # Например: scoreboard ещё 3:2, а последнее событие уже 4:2.
+    goal_scores = []
+    for node in soup.select(".cub-event.team1-event, .cub-event.team2-event"):
+        title_node = node.select_one(".popup-title")
+        title = norm(title_node.get_text(" ", strip=True) if title_node else "").lower()
+        if "гол" not in title:
+            continue
+
+        text = norm(node.get_text(" ", strip=True))
+        scores_in_event = re.findall(
+            r"(?<!\d)(\d{1,2})\s*:\s*(\d{1,2})(?!\d)",
+            text,
+        )
+        if scores_in_event:
+            home, away = map(int, scores_in_event[-1].split(":"))
+            goal_scores.append((home, away))
+
+    if goal_scores:
+        home, away = goal_scores[-1]
+        return f"{home}:{away}"
+
+    # 2. Нормальный scoreboard — резервный источник.
     scores = []
     for x in soup.select(".final-score .team-score"):
         t = norm(x.get_text(" ", strip=True))
         if re.fullmatch(r"\d{1,2}", t):
             scores.append(int(t))
-
-    if len(scores) >= 2 and (scores[0] != 0 or scores[1] != 0):
-        return f"{scores[0]}:{scores[1]}"
-
-    # 2. Live: scoreboard может быть 0:0, а голы уже есть в событиях.
-    def goal_count(selector):
-        return sum(
-            1
-            for x in soup.select(selector)
-            if norm(x.get_text(" ", strip=True)).lower() == "гол"
-        )
-
-    home = goal_count(".cub-event.team1-event .popup-title")
-    away = goal_count(".cub-event.team2-event .popup-title")
-
-    if home or away:
-        return f"{home}:{away}"
 
     if len(scores) >= 2:
         return f"{scores[0]}:{scores[1]}"
