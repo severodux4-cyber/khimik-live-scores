@@ -568,19 +568,37 @@ def parse_status(soup, page_text, scheduled_dt):
 
 def parse_goal_details(soup, target_score, side):
     """
-    Ищет конкретный гол по паре «счёт + время» события ФХМО.
+    Извлекает автора, ассистов и время конкретного гола
+    из реальной структуры страницы ФХМО.
 
-    Важно: в строке события есть два значения с двоеточием:
-      4:2   — счёт после гола
-      38:25 — время гола
+    ФХМО сейчас НЕ хранит счёт гола внутри .cub-event. Внутри события
+    находятся только:
+      - .popup-title -> "Гол"
+      - .popup-player -> автор (и при наличии ассисты)
 
-    Поэтому нельзя искать просто все значения N:N и брать последнее.
+    Время гола находится в соседнем .time-div внутри того же
+    .event-line-container.
+
+    Поэтому определяем конкретный гол по его порядковому номеру для
+    соответствующей команды. Например, при счёте 2:1 второй гол Химика
+    — это второй .team1-event с popup-title="Гол".
     """
     selector = (
         ".cub-event.team1-event"
         if side == "home"
         else ".cub-event.team2-event"
     )
+
+    try:
+        home_score, away_score = map(int, str(target_score).split(":"))
+    except (TypeError, ValueError):
+        return None
+
+    goal_number = home_score if side == "home" else away_score
+    if goal_number <= 0:
+        return None
+
+    goal_nodes = []
 
     for node in soup.select(selector):
         title_node = node.select_one(".popup-title")
@@ -591,60 +609,40 @@ def parse_goal_details(soup, target_score, side):
         if "гол" not in title:
             continue
 
-        text = norm(node.get_text(" ", strip=True))
+        goal_nodes.append(node)
 
-        # Именно счёт события, за которым сразу идёт время:
-        # «... 4:2 38:25»
-        score_time = re.search(
-            r"(?<!\d)(\d{1,2}:\d{1,2})\s+(\d{1,3}:\d{2})(?!\d)",
-            text,
-        )
-        if not score_time:
-            continue
+    # Нужного гола в текущем HTML ещё нет.
+    if len(goal_nodes) < goal_number:
+        return None
 
-        event_score = score_time.group(1)
-        goal_time = score_time.group(2)
+    node = goal_nodes[goal_number - 1]
 
-        if event_score != target_score:
-            continue
+    # Автор и ассисты находятся в .popup-player.
+    players = [
+        norm(player.get_text(" ", strip=True))
+        for player in node.select(".popup-player")
+        if norm(player.get_text(" ", strip=True))
+    ]
 
-        marker = re.search(
-            r"гол(?:\s*\([^)]*\))?\s*",
-            text,
-            re.I,
-        )
-        if not marker:
-            continue
+    if not players:
+        return None
 
-        # Между «Гол ...» и «счёт + время» находятся автор и ассисты.
-        details = text[marker.end():score_time.start()].strip()
+    scorer = players[0]
+    assists = players[1:]
 
-        scorer_match = re.match(
-            r"([А-ЯЁ][а-яё-]+(?:-[А-ЯЁ][а-яё-]+)?\s+[А-ЯЁ]\.)"
-            r"(?:\s*\(([^)]*)\))?",
-            details,
-        )
-        if not scorer_match:
-            continue
+    # Время гола находится в том же event-line-container.
+    goal_time = ""
+    container = node.find_parent("div", class_="event-line-container")
+    if container:
+        time_node = container.select_one(".time-div")
+        if time_node:
+            goal_time = norm(time_node.get_text(" ", strip=True))
 
-        scorer = scorer_match.group(1).strip()
-        assists = []
-
-        if scorer_match.group(2):
-            assist_text = scorer_match.group(2)
-            assists = re.findall(
-                r"[А-ЯЁ][а-яё-]+(?:-[А-ЯЁ][а-яё-]+)?\s+[А-ЯЁ]\.",
-                assist_text,
-            )
-
-        return {
-            "scorer": scorer,
-            "assists": assists,
-            "time": goal_time,
-        }
-
-    return None
-
+    return {
+        "scorer": scorer,
+        "assists": assists,
+        "time": goal_time,
+    }
 
 def parse_match(url, age, group_label):
     # Для live-матча принудительно обходим кэш CDN/прокси:
@@ -1095,25 +1093,35 @@ def main():
         comeback = False
 
         # Если между двумя проверками счёт изменился сразу на несколько шайб,
-        # обычная логика delta не определяет home_goal/away_goal.
-        # Тогда смотрим последнюю запись о голе на странице и определяем
-        # сторону и автора по реальному событию ФХМО.
+        # определяем сторону только по реальной дельте счёта.
+        # Если одновременно изменились обе стороны, оставляем событие
+        # "score", чтобы не приписать гол не той команде.
         if event == "score" and khimik_in_match(match):
             try:
-                goal_fetch_url = match["url"]
-                separator = "&" if "?" in goal_fetch_url else "?"
-                goal_fetch_url = (
-                    f"{goal_fetch_url}{separator}_goal={int(time.time())}"
-                )
-                goal_soup = BeautifulSoup(
-                    get(goal_fetch_url),
-                    "html.parser",
-                )
+                old_home, old_away = map(int, old.get("score", "0:0").split(":"))
+                new_home, new_away = map(int, match["score"].split(":"))
+                home_delta = new_home - old_home
+                away_delta = new_away - old_away
 
-                for candidate_side, candidate_event in (
-                    ("home", "home_goal"),
-                    ("away", "away_goal"),
-                ):
+                candidate_side = None
+                candidate_event = None
+                if home_delta > 0 and away_delta <= 0:
+                    candidate_side = "home"
+                    candidate_event = "home_goal"
+                elif away_delta > 0 and home_delta <= 0:
+                    candidate_side = "away"
+                    candidate_event = "away_goal"
+
+                if candidate_side:
+                    goal_fetch_url = match["url"]
+                    separator = "&" if "?" in goal_fetch_url else "?"
+                    goal_fetch_url = (
+                        f"{goal_fetch_url}{separator}_goal={int(time.time())}"
+                    )
+                    goal_soup = BeautifulSoup(
+                        get(goal_fetch_url),
+                        "html.parser",
+                    )
                     candidate_details = parse_goal_details(
                         goal_soup,
                         match["score"],
@@ -1122,7 +1130,6 @@ def main():
                     if candidate_details:
                         event = candidate_event
                         goal_details = candidate_details
-                        break
             except Exception as e:
                 logging.warning(
                     "GOAL: не удалось определить гол по событию %s: %s",
@@ -1137,7 +1144,12 @@ def main():
             if khimik_in_match(match):
                 side = "home" if event == "home_goal" else "away"
                 try:
-                    goal_soup = BeautifulSoup(get(match["url"]), "html.parser")
+                    goal_fetch_url = match["url"]
+                    separator = "&" if "?" in goal_fetch_url else "?"
+                    goal_fetch_url = (
+                        f"{goal_fetch_url}{separator}_goal={int(time.time())}"
+                    )
+                    goal_soup = BeautifulSoup(get(goal_fetch_url), "html.parser")
                     goal_details = parse_goal_details(
                         goal_soup,
                         match["score"],
