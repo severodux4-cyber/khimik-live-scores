@@ -2,7 +2,7 @@ name: Khimik weekly tables
 
 on:
   schedule:
-    - cron: "0 20 * * 0"
+    - cron: "3 20 * * 0"
       timezone: "Europe/Moscow"
 
 permissions:
