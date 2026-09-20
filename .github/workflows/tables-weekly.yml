@@ -1,0 +1,33 @@
+name: Khimik weekly tables
+
+on:
+  schedule:
+    - cron: "0 20 * * 0"
+      timezone: "Europe/Moscow"
+
+permissions:
+  contents: read
+
+jobs:
+  tables:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Send weekly tables
+        env:
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          COMPETITION_URL: "https://фхмо.рф/competitions/2026-2027/pervenstvo-moskovskoy-oblasti-po-khokkeyu-sredi-yunoshey-2026-2027/"
+        run: python bot_tables_weekly.py
