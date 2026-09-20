@@ -568,81 +568,117 @@ def parse_status(soup, page_text, scheduled_dt):
 
 def parse_goal_details(soup, target_score, side):
     """
-    Извлекает автора, ассистов и время конкретного гола
-    из реальной структуры страницы ФХМО.
+    Извлекает автора, ассиста(ов) и время конкретного гола из реальной
+    разметки ФХМО.
 
-    ФХМО сейчас НЕ хранит счёт гола внутри .cub-event. Внутри события
-    находятся только:
-      - .popup-title -> "Гол"
-      - .popup-player -> автор (и при наличии ассисты)
+    На странице ФХМО есть два представления событий:
+      1) .cub-event — краткая лента, где обычно виден только автор;
+      2) .evrow — подробная лента, где для гола есть автор, ассист(ы),
+         счёт гола и точное время.
 
-    Время гола находится в соседнем .time-div внутри того же
-    .event-line-container.
-
-    Поэтому определяем конкретный гол по его порядковому номеру для
-    соответствующей команды. Например, при счёте 2:1 второй гол Химика
-    — это второй .team1-event с popup-title="Гол".
+    Поэтому для автора/ассистов/времени используем подробную .evrow.
+    Конкретный гол определяем по его счёту (например, 3:1), а не только
+    по порядковому номеру.
     """
-    selector = (
-        ".cub-event.team1-event"
-        if side == "home"
-        else ".cub-event.team2-event"
-    )
-
     try:
-        home_score, away_score = map(int, str(target_score).split(":"))
+        target_home, target_away = map(int, str(target_score).split(":"))
     except (TypeError, ValueError):
         return None
 
-    goal_number = home_score if side == "home" else away_score
-    if goal_number <= 0:
-        return None
+    def parse_score_from_row(row):
+        score_node = row.select_one(".evrow-gr2 .time-period")
+        if not score_node:
+            return None
+        text = norm(score_node.get_text(" ", strip=True))
+        m = re.search(r"(?<!\d)(\d{1,2})\s*:\s*(\d{1,2})(?!\d)", text)
+        if not m:
+            return None
+        return int(m.group(1)), int(m.group(2))
 
-    goal_nodes = []
+    def get_player_name(container):
+        if not container:
+            return ""
+        player = container.select_one(".event-plname")
+        if not player:
+            return ""
+        # Берём только текст самого автора, не текст ассиста из .playne.
+        for playne in player.select(".playne"):
+            playne.extract()
+        return norm(player.get_text(" ", strip=True)).replace("\xa0", " ")
 
-    for node in soup.select(selector):
-        title_node = node.select_one(".popup-title")
-        title = norm(
-            title_node.get_text(" ", strip=True) if title_node else ""
-        ).lower()
+    def get_assists(container):
+        if not container:
+            return []
+        result = []
+        for node in container.select(".playne nobr"):
+            value = norm(node.get_text(" ", strip=True)).strip("() ")
+            if value:
+                result.append(value.replace("\xa0", " "))
+        # На случай, если <nobr> нет, но ассист лежит прямо в .playne.
+        if not result:
+            for node in container.select(".playne"):
+                value = norm(node.get_text(" ", strip=True)).strip("() ")
+                if value:
+                    result.append(value.replace("\xa0", " "))
+        return result
 
-        if "гол" not in title:
+    for row in soup.select(".evrow"):
+        score = parse_score_from_row(row)
+        if score != (target_home, target_away):
             continue
 
-        goal_nodes.append(node)
+        home_goal = bool(row.select_one(".evrow-gr1 .event-name") and
+                         "гол" in norm(row.select_one(".evrow-gr1 .event-name").get_text(" ", strip=True)).lower())
+        away_goal = bool(row.select_one(".evrow-gr3 .event-name") and
+                         "гол" in norm(row.select_one(".evrow-gr3 .event-name").get_text(" ", strip=True)).lower())
 
-    # Нужного гола в текущем HTML ещё нет.
-    if len(goal_nodes) < goal_number:
-        return None
+        wanted_home = side == "home"
+        if wanted_home and not home_goal:
+            continue
+        if not wanted_home and not away_goal:
+            continue
 
-    node = goal_nodes[goal_number - 1]
+        player_container = row.select_one(".evrow-gr1" if wanted_home else ".evrow-gr3")
+        # Сначала читаем ассисты: get_player_name() ниже удаляет .playne
+        # из копии узла, поэтому порядок здесь принципиален.
+        assists = get_assists(player_container)
+        scorer = get_player_name(player_container)
+        if not scorer:
+            continue
 
-    # Автор и ассисты находятся в .popup-player.
-    players = [
-        norm(player.get_text(" ", strip=True))
-        for player in node.select(".popup-player")
-        if norm(player.get_text(" ", strip=True))
-    ]
+        time_node = row.select_one(".evrow-gr2 .event-label")
+        goal_time = norm(time_node.get_text(" ", strip=True)) if time_node else ""
 
-    if not players:
-        return None
+        return {
+            "scorer": scorer,
+            "assists": assists,
+            "time": goal_time,
+        }
 
-    scorer = players[0]
-    assists = players[1:]
+    # Резервный разбор по компактной .cub-event: нужен для случаев,
+    # когда подробная .evrow ещё не попала в HTML, но автор уже есть.
+    selector = ".cub-event.team1-event" if side == "home" else ".cub-event.team2-event"
+    goal_nodes = []
+    for node in soup.select(selector):
+        title_node = node.select_one(".popup-title")
+        title = norm(title_node.get_text(" ", strip=True) if title_node else "").lower()
+        if "гол" in title:
+            goal_nodes.append(node)
 
-    # Время гола находится в том же event-line-container.
-    goal_time = ""
-    container = node.find_parent("div", class_="event-line-container")
-    if container:
-        time_node = container.select_one(".time-div")
-        if time_node:
-            goal_time = norm(time_node.get_text(" ", strip=True))
+    goal_number = target_home if side == "home" else target_away
+    if 1 <= goal_number <= len(goal_nodes):
+        node = goal_nodes[goal_number - 1]
+        players = [norm(x.get_text(" ", strip=True)) for x in node.select(".popup-player") if norm(x.get_text(" ", strip=True))]
+        if players:
+            container = node.find_parent("div", class_="event-line-container")
+            time_node = container.select_one(".time-div") if container else None
+            return {
+                "scorer": players[0],
+                "assists": players[1:],
+                "time": norm(time_node.get_text(" ", strip=True)) if time_node else "",
+            }
 
-    return {
-        "scorer": scorer,
-        "assists": assists,
-        "time": goal_time,
-    }
+    return None
 
 def parse_match(url, age, group_label):
     # Для live-матча принудительно обходим кэш CDN/прокси:
@@ -1033,18 +1069,45 @@ def main():
                     nh, na = map(int, new_score.split(":"))
                     home_delta = nh - oh
                     away_delta = na - oa
+
                     if home_delta == 1 and away_delta == 0:
                         event = "home_goal"
+                        changes.append((key, old, match, event))
                     elif away_delta == 1 and home_delta == 0:
                         event = "away_goal"
-                    # При нескольких голах между двумя проверками
-                    # сообщаем изменение итогового счёта, не выдумывая
-                    # отдельные события.
-                    elif home_delta > 0 or away_delta > 0:
-                        event = "score"
+                        changes.append((key, old, match, event))
+                    elif home_delta > 1 and away_delta == 0:
+                        # Между двумя проверками могло быть несколько голов
+                        # одной команды. Раньше здесь отправлялся только
+                        # итоговый счёт, из-за чего промежуточные голы
+                        # (и их авторы) терялись.
+                        #
+                        # Создаём отдельное событие для каждого пропущенного
+                        # гола с промежуточным счётом: например, 2:1 -> 4:1
+                        # превращается в 3:1 и 4:1. Это позволяет
+                        # parse_goal_details() взять 3-го и 4-го автора
+                        # соответственно.
+                        previous = old
+                        for goal_index in range(1, home_delta + 1):
+                            step_match = dict(match)
+                            step_match["score"] = f"{oh + goal_index}:{oa}"
+                            changes.append((key, previous, step_match, "home_goal"))
+                            previous = step_match
+                    elif away_delta > 1 and home_delta == 0:
+                        # Аналогично для нескольких голов гостевой команды.
+                        previous = old
+                        for goal_index in range(1, away_delta + 1):
+                            step_match = dict(match)
+                            step_match["score"] = f"{oh}:{oa + goal_index}"
+                            changes.append((key, previous, step_match, "away_goal"))
+                            previous = step_match
+                    else:
+                        # Если одновременно изменились обе стороны,
+                        # намеренно оставляем безопасное событие "score"
+                        # и не пытаемся угадать порядок голов.
+                        changes.append((key, old, match, "score"))
                 except Exception:
-                    pass
-                changes.append((key, old, match, event))
+                    changes.append((key, old, match, event))
 
             elif old_status == "⏳ Матч не начался" and new_status.startswith("⏱"):
                 changes.append((key, old, match, "start"))
