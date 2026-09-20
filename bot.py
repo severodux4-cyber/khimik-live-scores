@@ -546,22 +546,18 @@ def parse_status(soup, page_text, scheduled_dt):
     if has_finish_marker:
         return "🏁 Матч завершён"
 
-    # Если матч начался недавно, считаем его идущим.
-    if scheduled_dt:
-        elapsed = (now - scheduled_dt).total_seconds() / 60
+    # Пока ФХМО не сообщил явное завершение, матч не считаем завершённым
+    # только по времени. В детском хоккее длительные паузы и задержки
+    # обновления страницы могут легко сделать матч длиннее двух часов.
+    if latest_period == "3 период":
+        return "⏱ 3 период"
+    if latest_period == "2 период":
+        return "⏱ 2 период"
+    if latest_period == "1 период":
+        return "⏱ 1 период"
 
-        if elapsed < MATCH_DURATION_GRACE_MINUTES:
-            if latest_period == "3 период":
-                return "⏱ 3 период"
-            if latest_period == "2 период":
-                return "⏱ 2 период"
-            if latest_period == "1 период":
-                return "⏱ 1 период"
-            return "⏱ Матч идёт"
-
-        # Fallback: после двух часов считаем матч завершённым,
-        # если сайт не сообщил явный другой статус.
-        return "🏁 Матч завершён"
+    if scheduled_dt and scheduled_dt <= now:
+        return "⏱ Матч идёт"
 
     return "ℹ️ Статус не определён"
 
@@ -1266,6 +1262,8 @@ def main():
 
         if event == "finish":
             body = (
+                f"🏒 Химик Воскресенск {match['age']}\n"
+                f"🕒 {match['date_time']}\n"
                 f"{match['home']} — {match['away']}\n"
                 f"🥅 {match['score']}"
             )
