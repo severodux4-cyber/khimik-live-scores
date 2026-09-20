@@ -28,10 +28,6 @@ MOSCOW = ZoneInfo("Europe/Moscow")
 REQUEST_DELAY = 0.65
 STATE_VERSION = 3
 INITIAL_NOTIFY_DONE = False
-# После начала матча считаем его завершённым, если страница не даёт
-# признаков текущей игры и прошло достаточно времени для полного матча.
-MATCH_DURATION_GRACE_MINUTES = 120
-
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 
 session = requests.Session()
@@ -328,11 +324,35 @@ def is_suspicious_update(old, new):
     old_status = old.get("status", "")
     new_status = new.get("status", "")
 
-    # Уже завершённый матч не должен снова становиться текущим.
-    if old_status == "🏁 Матч завершён" and new_status.startswith("⏱"):
-        return True
+    # Возврат завершённого матча в live с тем же счётом сам по себе
+    # не считаем "подозрительным откатом". На ФХМО статус может временно
+    # откатиться из-за обновления страницы/ленты событий. Такое состояние
+    # дополнительно обрабатывается в основном цикле: уже подтверждённый
+    # финал сохраняем без повторного WARNING.
 
     return False
+
+
+def keep_completed_state(old, new):
+    """Сохраняет подтверждённый финал, если сайт временно вернул live-статус."""
+    if not isinstance(old, dict) or not isinstance(new, dict):
+        return False
+
+    if old.get("status") != "🏁 Матч завершён":
+        return False
+
+    if not new.get("status", "").startswith("⏱"):
+        return False
+
+    try:
+        old_home, old_away = map(int, str(old.get("score", "")).split(":", 1))
+        new_home, new_away = map(int, str(new.get("score", "")).split(":", 1))
+    except (ValueError, AttributeError):
+        return False
+
+    # Если счёт не изменился — это именно временный откат статуса.
+    # Если появился новый гол, новое состояние принимаем.
+    return old_home == new_home and old_away == new_away
 
 
 def age_from(text):
@@ -981,6 +1001,16 @@ def main():
                                 continue
 
                         old_match = state.get(link)
+
+                        # ФХМО иногда после уже подтверждённого финала
+                        # временно отдаёт live-статус с тем же счётом.
+                        # Не превращаем такой переход в WARNING и не меняем
+                        # сохранённый финал. Если счёт увеличился, это новый
+                        # гол — новое состояние будет принято обычным путём.
+                        if old_match and keep_completed_state(old_match, match):
+                            current[link] = old_match
+                            continue
+
                         if old_match and is_suspicious_update(old_match, match):
                             logging.warning(
                                 "STATE: подозрительный откат %s | %s → %s | %s → %s — сохраняем старое состояние",
