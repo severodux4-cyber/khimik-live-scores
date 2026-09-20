@@ -919,6 +919,8 @@ def main():
                 f"{match['home']} — {match['away']}\n"
                 f"🥅 {match['score']}"
             )
+            if str(match["age"]) == "2017" and "Химик Воскресенск" in (match["home"], match["away"]):
+                body += "\n\nОдин лёд - одна команда!"
         else:
             body = (
                 f"🏒 Химик Воскресенск {match['age']}\n"
