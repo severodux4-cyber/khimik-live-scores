@@ -566,6 +566,73 @@ def parse_status(soup, page_text, scheduled_dt):
     return "ℹ️ Статус не определён"
 
 
+def parse_goal_details(soup, target_score, side):
+    """
+    Возвращает автора и ассистов конкретного гола по итоговому счёту события.
+    Используем только события .cub-event, которые уже применяются парсером
+    счёта, поэтому при отсутствии данных просто возвращаем пустой результат.
+    """
+    selector = ".cub-event.team1-event" if side == "home" else ".cub-event.team2-event"
+    seen = set()
+
+    for node in soup.select(selector):
+        title = norm(
+            node.select_one(".popup-title").get_text(" ", strip=True)
+            if node.select_one(".popup-title")
+            else ""
+        ).lower()
+
+        if "гол" not in title:
+            continue
+
+        text = norm(node.get_text(" ", strip=True))
+
+        scores = re.findall(r"(?<!\d)(\d{1,2}:\d{1,2})(?!\d)", text)
+        if not scores or scores[-1] != target_score:
+            continue
+
+        # После слова «Гол» ФХМО показывает автора, а ассисты — в скобках.
+        # Например: «Гол (большинство) Шадыев М. (Павельев Д.) 1:0 01:48».
+        marker = re.search(r"гол(?:\s*\([^)]*\))?\s*", text, re.I)
+        if not marker:
+            continue
+
+        details = text[marker.end():]
+        details = re.sub(
+            r"\s+\d{1,2}:\d{1,2}\s+\d{1,3}:\d{2}.*$",
+            "",
+            details,
+            flags=re.I,
+        ).strip()
+
+        m = re.match(
+            r"([А-ЯЁ][а-яё-]+\s+[А-ЯЁ]\.)\s*(\(([^)]*)\))?",
+            details,
+        )
+        if not m:
+            continue
+
+        scorer = m.group(1).strip()
+        assists = []
+        if m.group(3):
+            assists = [
+                x.strip()
+                for x in m.group(3).split(",")
+                if re.fullmatch(r"[А-ЯЁ][а-яё-]+\s+[А-ЯЁ]\.", x.strip())
+            ]
+
+        result = (scorer, tuple(assists))
+        if result in seen:
+            continue
+        seen.add(result)
+        return {
+            "scorer": scorer,
+            "assists": assists,
+        }
+
+    return None
+
+
 def parse_match(url, age, group_label):
     soup = BeautifulSoup(get(url), "html.parser")
     page_text = norm(soup.get_text(" ", strip=True))
@@ -890,6 +957,28 @@ def main():
                 current_event_id,
             )
             continue
+        goal_details = None
+        if event in ("home_goal", "away_goal"):
+            side = "home" if event == "home_goal" else "away"
+            # Автора показываем только в матчах Химика всех возрастов.
+            if (
+                norm(match["home"]).lower() == "химик воскресенск"
+                or norm(match["away"]).lower() == "химик воскресенск"
+            ):
+                try:
+                    goal_soup = BeautifulSoup(get(match["url"]), "html.parser")
+                    goal_details = parse_goal_details(
+                        goal_soup,
+                        match["score"],
+                        side,
+                    )
+                except Exception as e:
+                    logging.warning(
+                        "GOAL: не удалось определить автора %s: %s",
+                        match["url"],
+                        e,
+                    )
+
         if event == "home_goal":
             if norm(match["home"]).lower() == "химик воскресенск":
                 header = "🥅 ГООООЛ ХИМИК! 💛💙"
@@ -929,6 +1018,11 @@ def main():
                 f"🔥 Счёт: {match['score']}\n"
                 f"{match['status']}"
             )
+        if goal_details and event in ("home_goal", "away_goal"):
+            body += f"\n\n👤 Автор: {goal_details['scorer']}"
+            if goal_details["assists"]:
+                body += f"\n🎯 Ассист: {', '.join(goal_details['assists'])}"
+
         message = f"{header}\n\n{body}" if header else body
 
         if initial_mode:
