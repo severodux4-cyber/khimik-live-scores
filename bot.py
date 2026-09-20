@@ -892,13 +892,13 @@ def main():
             continue
         if event == "home_goal":
             if norm(match["home"]).lower() == "химик воскресенск":
-                header = "🥅 ГОООЛ ХИМИКА!"
+                header = "🥅 ГООООЛ ХИМИК! 💛💙"
             else:
                 header = "🥅 ГОЛ СОПЕРНИКА"
 
         elif event == "away_goal":
             if norm(match["away"]).lower() == "химик воскресенск":
-                header = "🥅 ГОООЛ ХИМИКА!"
+                header = "🥅 ГООООЛ ХИМИК! 💛💙"
             else:
                 header = "🥅 ГОЛ СОПЕРНИКА"
 
