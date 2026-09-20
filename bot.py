@@ -553,6 +553,37 @@ def parse_status(soup, page_text, scheduled_dt):
 
     has_finish_marker = any(marker in text_lower for marker in finish_markers)
 
+    # На странице завершённого матча ФХМО заполняет блок .half-score
+    # результатами всех трёх периодов. Это надёжный признак финального
+    # состояния: например, 1:1 3:0 0:1 при итоговом 4:2.
+    # Одного итогового счёта недостаточно, потому что во время live-матча
+    # .final-score тоже содержит текущий счёт.
+    half_score_node = soup.select_one(".half-score")
+    if half_score_node:
+        half_score_text = norm(half_score_node.get_text(" ", strip=True))
+        period_scores = [
+            (int(home), int(away))
+            for home, away in re.findall(
+                r"(?<!\d)(\d{1,2})\s*:\s*(\d{1,2})(?!\d)",
+                half_score_text,
+            )
+        ]
+
+        # Считаем матч завершённым, когда ФХМО уже показал результаты
+        # всех трёх периодов и их сумма совпадает с итоговым счётом.
+        # Так мы не путаем текущий live-счёт с финальным результатом.
+        final_score = []
+        for node in soup.select(".final-score .team-score"):
+            value = norm(node.get_text(" ", strip=True))
+            if re.fullmatch(r"\d{1,2}", value):
+                final_score.append(int(value))
+
+        if len(period_scores) >= 3 and len(final_score) >= 2:
+            periods_home = sum(x[0] for x in period_scores[:3])
+            periods_away = sum(x[1] for x in period_scores[:3])
+            if (periods_home, periods_away) == (final_score[0], final_score[1]):
+                return "🏁 Матч завершён"
+
     # Берём период из фактических событий, а НЕ из текста кнопок-вкладок.
     event_periods = []
     for node in soup.select(".feed-period-name"):
