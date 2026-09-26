@@ -24,6 +24,10 @@
       "count": 0,
       "last_scorer": "opponent"
     },
+    "https://фхмо.рф/matches/m_37546/": {
+      "count": 0,
+      "last_scorer": "opponent"
+    },
     "https://фхмо.рф/matches/m_37562/": {
       "count": 0,
       "last_scorer": "opponent"
@@ -57,6 +61,7 @@
     "m_36693:score:7:0",
     "m_36693:score:9:0",
     "m_36693:start",
+    "m_36719:finish:2:1",
     "m_36719:score:1:0",
     "m_36719:score:1:1",
     "m_36719:score:2:1",
@@ -81,6 +86,7 @@
     "m_37436:score:8:0",
     "m_37436:start",
     "m_37546:score:1:1",
+    "m_37546:score:1:2",
     "m_37546:start",
     "m_37562:finish:4:2",
     "m_37562:score:1:0",
@@ -294,7 +300,7 @@
     "group": "Первая группа",
     "home": "Академия Петрова Красногорск",
     "score": "2:1",
-    "status": "⏱ Матч идёт",
+    "status": "🏁 Матч завершён",
     "url": "https://фхмо.рф/matches/m_36719/"
   },
   "https://фхмо.рф/matches/m_36738/": {
@@ -493,7 +499,7 @@
     "date_time": "26.09.2026 16:45",
     "group": "Первая группа",
     "home": "Химик Воскресенск",
-    "score": "1:1",
+    "score": "1:2",
     "status": "⏱ Матч идёт",
     "url": "https://фхмо.рф/matches/m_37546/"
   },
@@ -776,6 +782,16 @@
     "score": "0:0",
     "status": "⏳ Матч не начался",
     "url": "https://фхмо.рф/matches/m_37732/"
+  },
+  "https://фхмо.рф/matches/m_37736/": {
+    "age": "2011",
+    "away": "Академия Петрова Красногорск",
+    "date_time": "05.12.2026 00:00",
+    "group": "Первая группа",
+    "home": "Химик Воскресенск",
+    "score": "0:0",
+    "status": "⏳ Матч не начался",
+    "url": "https://фхмо.рф/matches/m_37736/"
   },
   "https://фхмо.рф/matches/m_37778/": {
     "age": "2012",
