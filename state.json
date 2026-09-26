@@ -19,6 +19,10 @@
     "https://фхмо.рф/matches/m_37562/": {
       "count": 0,
       "last_scorer": "opponent"
+    },
+    "https://фхмо.рф/matches/m_37587/": {
+      "count": 3,
+      "last_scorer": "khimik"
     }
   },
   "_meta": {
@@ -54,6 +58,9 @@
     "m_37562:score:3:2",
     "m_37562:score:4:2",
     "m_37562:start",
+    "m_37587:score:0:1",
+    "m_37587:score:0:2",
+    "m_37587:score:0:3",
     "m_37587:start"
   ],
   "https://фхмо.рф/matches/m_36618/": {
@@ -522,7 +529,7 @@
     "date_time": "26.09.2026 10:15",
     "group": "Первая группа",
     "home": "Витязь Подольск",
-    "score": "0:0",
+    "score": "0:3",
     "status": "⏱ Матч идёт",
     "url": "https://фхмо.рф/matches/m_37587/"
   },
