@@ -1,5 +1,5 @@
 {
-  "offset": 472911305,
+  "offset": 472911307,
   "users": {
     "1013658879": {
       "active": false
@@ -16,6 +16,9 @@
     "388913310": {
       "active": true,
       "admin": true
+    },
+    "5094111899": {
+      "active": true
     },
     "6766664322": {
       "active": true
