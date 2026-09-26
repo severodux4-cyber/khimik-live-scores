@@ -29,8 +29,8 @@
       "last_scorer": "opponent"
     },
     "https://фхмо.рф/matches/m_37586/": {
-      "count": 0,
-      "last_scorer": "opponent"
+      "count": 1,
+      "last_scorer": "khimik"
     },
     "https://фхмо.рф/matches/m_37587/": {
       "count": 3,
@@ -81,9 +81,12 @@
     "m_37562:score:4:2",
     "m_37562:start",
     "m_37585:score:1:0",
+    "m_37585:score:2:0",
+    "m_37585:score:3:0",
     "m_37586:score:1:0",
     "m_37586:score:3:1",
     "m_37586:score:3:2",
+    "m_37586:score:4:2",
     "m_37586:start",
     "m_37587:score:0:1",
     "m_37587:score:0:2",
@@ -547,7 +550,7 @@
     "date_time": "26.09.2026 15:30",
     "group": "Первая группа",
     "home": "Балашиха",
-    "score": "1:0",
+    "score": "3:0",
     "status": "⏱ Матч идёт",
     "url": "https://фхмо.рф/matches/m_37585/"
   },
@@ -557,7 +560,7 @@
     "date_time": "26.09.2026 14:45",
     "group": "Первая группа",
     "home": "Химик Воскресенск",
-    "score": "3:2",
+    "score": "4:2",
     "status": "⏱ Матч идёт",
     "url": "https://фхмо.рф/matches/m_37586/"
   },
