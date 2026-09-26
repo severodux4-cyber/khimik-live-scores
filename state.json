@@ -23,6 +23,10 @@
     "https://фхмо.рф/matches/m_37587/": {
       "count": 3,
       "last_scorer": "khimik"
+    },
+    "https://фхмо.рф/matches/m_37589/": {
+      "count": 1,
+      "last_scorer": "khimik"
     }
   },
   "_meta": {
@@ -63,6 +67,7 @@
     "m_37587:score:0:3",
     "m_37587:score:2:6",
     "m_37587:start",
+    "m_37589:score:0:1",
     "m_37589:start"
   ],
   "https://фхмо.рф/matches/m_36618/": {
@@ -551,7 +556,7 @@
     "date_time": "26.09.2026 11:30",
     "group": "Первая группа",
     "home": "СШОР Богородский г.о.",
-    "score": "0:0",
+    "score": "0:1",
     "status": "⏱ Матч идёт",
     "url": "https://фхмо.рф/matches/m_37589/"
   },
