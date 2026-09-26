@@ -8,6 +8,10 @@
       "count": 3,
       "last_scorer": "khimik"
     },
+    "https://фхмо.рф/matches/m_36719/": {
+      "count": 0,
+      "last_scorer": "opponent"
+    },
     "https://фхмо.рф/matches/m_36749/": {
       "count": 0,
       "last_scorer": "opponent"
@@ -53,6 +57,7 @@
     "m_36693:score:7:0",
     "m_36693:score:9:0",
     "m_36693:start",
+    "m_36719:score:1:0",
     "m_36719:start",
     "m_36749:finish:4:1",
     "m_36749:finish:4:2",
@@ -82,6 +87,7 @@
     "m_37562:score:4:2",
     "m_37562:start",
     "m_37585:score:10:0",
+    "m_37585:score:11:0",
     "m_37585:score:1:0",
     "m_37585:score:2:0",
     "m_37585:score:3:0",
@@ -279,7 +285,7 @@
     "date_time": "26.09.2026 15:15",
     "group": "Первая группа",
     "home": "Академия Петрова Красногорск",
-    "score": "0:0",
+    "score": "1:0",
     "status": "⏱ Матч идёт",
     "url": "https://фхмо.рф/matches/m_36719/"
   },
@@ -559,7 +565,7 @@
     "date_time": "26.09.2026 15:30",
     "group": "Первая группа",
     "home": "Балашиха",
-    "score": "10:0",
+    "score": "11:0",
     "status": "⏱ Матч идёт",
     "url": "https://фхмо.рф/matches/m_37585/"
   },
