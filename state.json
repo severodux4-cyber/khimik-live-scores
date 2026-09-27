@@ -33,7 +33,7 @@
       "last_scorer": "opponent"
     },
     "https://фхмо.рф/matches/m_37440/": {
-      "count": 2,
+      "count": 5,
       "last_scorer": "khimik"
     },
     "https://фхмо.рф/matches/m_37546/": {
@@ -115,6 +115,9 @@
     "m_37440:score:1:1",
     "m_37440:score:2:1",
     "m_37440:score:3:1",
+    "m_37440:score:4:1",
+    "m_37440:score:5:1",
+    "m_37440:score:6:1",
     "m_37440:start",
     "m_37546:score:1:1",
     "m_37546:score:1:2",
@@ -514,7 +517,7 @@
     "date_time": "27.09.2026 14:00",
     "group": "Первая группа",
     "home": "Химик Воскресенск",
-    "score": "3:1",
+    "score": "6:1",
     "status": "⏱ Матч идёт",
     "url": "https://фхмо.рф/matches/m_37440/"
   },
