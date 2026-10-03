@@ -63,6 +63,10 @@
     "https://фхмо.рф/matches/m_37589/": {
       "count": 4,
       "last_scorer": "khimik"
+    },
+    "https://фхмо.рф/matches/m_37952/": {
+      "count": 0,
+      "last_scorer": "opponent"
     }
   },
   "_meta": {
@@ -183,6 +187,7 @@
     "m_37589:score:3:5",
     "m_37589:score:3:6",
     "m_37589:start",
+    "m_37952:score:0:1",
     "m_37952:start",
     "m_38132:score:1:1"
   ],
@@ -952,7 +957,7 @@
     "date_time": "03.10.2026 10:30",
     "group": "Первая группа",
     "home": "Химик Воскресенск",
-    "score": "0:0",
+    "score": "0:1",
     "status": "⏱ Матч идёт",
     "url": "https://фхмо.рф/matches/m_37952/"
   },
