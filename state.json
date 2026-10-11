@@ -69,8 +69,8 @@
       "last_scorer": "khimik"
     },
     "https://фхмо.рф/matches/m_37602/": {
-      "count": 1,
-      "last_scorer": "khimik"
+      "count": 0,
+      "last_scorer": "opponent"
     },
     "https://фхмо.рф/matches/m_37696/": {
       "count": 1,
@@ -236,6 +236,7 @@
     "m_37602:score:1:4",
     "m_37602:score:2:5",
     "m_37602:score:2:6",
+    "m_37602:score:3:6",
     "m_37696:score:2:2",
     "m_37696:score:3:2",
     "m_37696:start",
@@ -779,8 +780,8 @@
     "date_time": "11.10.2026 12:15",
     "group": "Первая группа",
     "home": "Армада Одинцово",
-    "score": "2:6",
-    "status": "⏱ Матч идёт",
+    "score": "3:6",
+    "status": "🏁 Матч завершён",
     "url": "https://фхмо.рф/matches/m_37602/"
   },
   "https://фхмо.рф/matches/m_37605/": {
