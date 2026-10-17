@@ -115,6 +115,10 @@
     "https://фхмо.рф/matches/m_38207/": {
       "count": 0,
       "last_scorer": "opponent"
+    },
+    "https://фхмо.рф/matches/m_38209/": {
+      "count": 0,
+      "last_scorer": "opponent"
     }
   },
   "_meta": {
@@ -314,7 +318,9 @@
     "m_38208:score:2:1",
     "m_38208:score:3:3",
     "m_38208:score:7:4",
-    "m_38208:start"
+    "m_38208:start",
+    "m_38209:score:1:0",
+    "m_38292:score:1:2"
   ],
   "https://фхмо.рф/matches/m_36618/": {
     "age": "2010",
@@ -1362,8 +1368,8 @@
     "date_time": "17.10.2026 15:30",
     "group": "Первая группа",
     "home": "Балашиха",
-    "score": "0:0",
-    "status": "⏳ Матч не начался",
+    "score": "1:0",
+    "status": "⏱ Матч идёт",
     "url": "https://фхмо.рф/matches/m_38209/"
   },
   "https://фхмо.рф/matches/m_38210/": {
@@ -1432,8 +1438,8 @@
     "date_time": "17.10.2026 15:30",
     "group": "Первая группа",
     "home": "Химик Воскресенск",
-    "score": "0:0",
-    "status": "⏳ Матч не начался",
+    "score": "1:2",
+    "status": "⏱ Матч идёт",
     "url": "https://фхмо.рф/matches/m_38292/"
   },
   "https://фхмо.рф/matches/m_38296/": {
