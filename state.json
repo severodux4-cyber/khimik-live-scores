@@ -113,8 +113,8 @@
       "last_scorer": "khimik"
     },
     "https://фхмо.рф/matches/m_38207/": {
-      "count": 4,
-      "last_scorer": "khimik"
+      "count": 0,
+      "last_scorer": "opponent"
     }
   },
   "_meta": {
@@ -309,6 +309,7 @@
     "m_38207:score:2:0",
     "m_38207:score:3:0",
     "m_38207:score:4:0",
+    "m_38207:score:4:1",
     "m_38207:start",
     "m_38208:score:2:1",
     "m_38208:score:3:3",
@@ -1341,8 +1342,8 @@
     "date_time": "17.10.2026 13:30",
     "group": "Первая группа",
     "home": "Химик Воскресенск",
-    "score": "4:0",
-    "status": "⏱ Матч идёт",
+    "score": "4:1",
+    "status": "🏁 Матч завершён",
     "url": "https://фхмо.рф/matches/m_38207/"
   },
   "https://фхмо.рф/matches/m_38208/": {
@@ -1414,6 +1415,16 @@
     "score": "0:0",
     "status": "⏳ Матч не начался",
     "url": "https://фхмо.рф/matches/m_38214/"
+  },
+  "https://фхмо.рф/matches/m_38219/": {
+    "age": "2017",
+    "away": "СШОР Богородский г.о.",
+    "date_time": "31.10.2026 00:00",
+    "group": "Первая группа",
+    "home": "Армада Одинцово",
+    "score": "0:0",
+    "status": "⏳ Матч не начался",
+    "url": "https://фхмо.рф/matches/m_38219/"
   },
   "https://фхмо.рф/matches/m_38292/": {
     "age": "2015",
