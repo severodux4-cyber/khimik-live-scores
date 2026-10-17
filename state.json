@@ -111,6 +111,10 @@
     "https://фхмо.рф/matches/m_38205/": {
       "count": 6,
       "last_scorer": "khimik"
+    },
+    "https://фхмо.рф/matches/m_38207/": {
+      "count": 2,
+      "last_scorer": "khimik"
     }
   },
   "_meta": {
@@ -300,6 +304,8 @@
     "m_38205:score:1:7",
     "m_38205:score:1:8",
     "m_38206:start",
+    "m_38207:score:1:0",
+    "m_38207:score:2:0",
     "m_38207:start",
     "m_38208:score:2:1",
     "m_38208:score:3:3",
@@ -1322,7 +1328,7 @@
     "date_time": "17.10.2026 13:30",
     "group": "Первая группа",
     "home": "Химик Воскресенск",
-    "score": "0:0",
+    "score": "2:0",
     "status": "⏱ Матч идёт",
     "url": "https://фхмо.рф/matches/m_38207/"
   },
