@@ -133,8 +133,8 @@
       "last_scorer": "opponent"
     },
     "https://фхмо.рф/matches/m_38422/": {
-      "count": 2,
-      "last_scorer": "khimik"
+      "count": 0,
+      "last_scorer": "opponent"
     }
   },
   "_meta": {
@@ -361,6 +361,7 @@
     "m_38292:score:1:9",
     "m_38422:score:1:0",
     "m_38422:score:2:0",
+    "m_38422:score:2:1",
     "m_38462:score:3:5"
   ],
   "https://фхмо.рф/matches/m_36618/": {
@@ -1609,8 +1610,8 @@
     "date_time": "18.10.2026 17:00",
     "group": "Первая группа",
     "home": "Химик Воскресенск",
-    "score": "2:0",
-    "status": "⏱ Матч идёт",
+    "score": "2:1",
+    "status": "🏁 Матч завершён",
     "url": "https://фхмо.рф/matches/m_38422/"
   },
   "https://фхмо.рф/matches/m_38426/": {
@@ -1792,5 +1793,15 @@
     "score": "0:0",
     "status": "⏳ Матч не начался",
     "url": "https://фхмо.рф/matches/m_38640/"
+  },
+  "https://фхмо.рф/matches/m_38646/": {
+    "age": "2014",
+    "away": "Химик Воскресенск",
+    "date_time": "20.12.2026 00:00",
+    "group": "Первая группа",
+    "home": "Кристалл Электросталь",
+    "score": "0:0",
+    "status": "⏳ Матч не начался",
+    "url": "https://фхмо.рф/matches/m_38646/"
   }
 }
