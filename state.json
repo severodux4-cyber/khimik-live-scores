@@ -84,6 +84,10 @@
       "count": 0,
       "last_scorer": "opponent"
     },
+    "https://фхмо.рф/matches/m_37784/": {
+      "count": 5,
+      "last_scorer": "khimik"
+    },
     "https://фхмо.рф/matches/m_37952/": {
       "count": 0,
       "last_scorer": "opponent"
@@ -261,6 +265,7 @@
     "m_37602:score:2:5",
     "m_37602:score:2:6",
     "m_37602:score:3:6",
+    "m_37605:score:1:3",
     "m_37605:start",
     "m_37696:score:2:2",
     "m_37696:score:3:2",
@@ -273,6 +278,11 @@
     "m_37778:score:2:0",
     "m_37778:score:3:0",
     "m_37784:score:1:3",
+    "m_37784:score:1:4",
+    "m_37784:score:1:5",
+    "m_37784:score:1:6",
+    "m_37784:score:1:7",
+    "m_37784:score:1:8",
     "m_37784:start",
     "m_37952:score:0:1",
     "m_37952:score:0:2",
@@ -856,7 +866,7 @@
     "date_time": "18.10.2026 12:30",
     "group": "Первая группа",
     "home": "Химик Воскресенск",
-    "score": "0:0",
+    "score": "1:3",
     "status": "⏱ Матч идёт",
     "url": "https://фхмо.рф/matches/m_37605/"
   },
@@ -1066,7 +1076,7 @@
     "date_time": "18.10.2026 12:45",
     "group": "Первая группа",
     "home": "Кристалл Электросталь",
-    "score": "1:3",
+    "score": "1:8",
     "status": "⏱ Матч идёт",
     "url": "https://фхмо.рф/matches/m_37784/"
   },
