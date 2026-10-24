@@ -132,6 +132,10 @@
       "count": 0,
       "last_scorer": "opponent"
     },
+    "https://фхмо.рф/matches/m_38211/": {
+      "count": 2,
+      "last_scorer": "khimik"
+    },
     "https://фхмо.рф/matches/m_38212/": {
       "count": 0,
       "last_scorer": "opponent"
@@ -295,6 +299,7 @@
     "m_37702:score:1:1",
     "m_37702:score:2:1",
     "m_37702:start",
+    "m_37706:score:3:1",
     "m_37706:start",
     "m_37778:score:1:0",
     "m_37778:score:2:0",
@@ -368,10 +373,13 @@
     "m_38209:score:6:1",
     "m_38210:score:3:2",
     "m_38210:score:5:3",
+    "m_38211:score:0:1",
+    "m_38211:score:0:2",
     "m_38212:score:1:0",
     "m_38212:score:2:0",
     "m_38212:score:3:1",
     "m_38212:score:5:2",
+    "m_38213:score:1:1",
     "m_38214:finish:3:8",
     "m_38214:score:1:1",
     "m_38214:score:3:3",
@@ -1031,7 +1039,7 @@
     "date_time": "24.10.2026 14:15",
     "group": "Первая группа",
     "home": "Химик Воскресенск",
-    "score": "0:0",
+    "score": "3:1",
     "status": "⏱ Матч идёт",
     "url": "https://фхмо.рф/matches/m_37706/"
   },
@@ -1491,8 +1499,8 @@
     "date_time": "24.10.2026 15:30",
     "group": "Первая группа",
     "home": "Дмитров",
-    "score": "0:0",
-    "status": "⏳ Матч не начался",
+    "score": "0:2",
+    "status": "⏱ Матч идёт",
     "url": "https://фхмо.рф/matches/m_38211/"
   },
   "https://фхмо.рф/matches/m_38212/": {
@@ -1511,8 +1519,8 @@
     "date_time": "24.10.2026 15:30",
     "group": "Первая группа",
     "home": "Красная Машина Атлант Мытищи",
-    "score": "0:0",
-    "status": "⏳ Матч не начался",
+    "score": "1:1",
+    "status": "⏱ Матч идёт",
     "url": "https://фхмо.рф/matches/m_38213/"
   },
   "https://фхмо.рф/matches/m_38214/": {
