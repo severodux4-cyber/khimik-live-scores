@@ -100,6 +100,10 @@
       "count": 1,
       "last_scorer": "khimik"
     },
+    "https://фхмо.рф/matches/m_37962/": {
+      "count": 0,
+      "last_scorer": "opponent"
+    },
     "https://фхмо.рф/matches/m_38097/": {
       "count": 0,
       "last_scorer": "opponent"
@@ -131,6 +135,10 @@
     "https://фхмо.рф/matches/m_38212/": {
       "count": 0,
       "last_scorer": "opponent"
+    },
+    "https://фхмо.рф/matches/m_38214/": {
+      "count": 5,
+      "last_scorer": "khimik"
     },
     "https://фхмо.рф/matches/m_38292/": {
       "count": 0,
@@ -306,6 +314,8 @@
     "m_37958:score:1:2",
     "m_37958:score:1:3",
     "m_37958:start",
+    "m_37962:score:0:1",
+    "m_37962:score:0:2",
     "m_37962:start",
     "m_38097:finish:7:0",
     "m_38097:score:1:0",
@@ -358,8 +368,14 @@
     "m_38210:score:5:3",
     "m_38212:score:1:0",
     "m_38212:score:2:0",
+    "m_38212:score:3:1",
     "m_38214:score:1:1",
     "m_38214:score:3:3",
+    "m_38214:score:3:4",
+    "m_38214:score:3:5",
+    "m_38214:score:3:6",
+    "m_38214:score:3:7",
+    "m_38214:score:3:8",
     "m_38292:score:1:10",
     "m_38292:score:1:11",
     "m_38292:score:1:2",
@@ -1231,7 +1247,7 @@
     "date_time": "24.10.2026 12:00",
     "group": "Первая группа",
     "home": "Химик Воскресенск",
-    "score": "0:0",
+    "score": "0:2",
     "status": "⏱ Матч идёт",
     "url": "https://фхмо.рф/matches/m_37962/"
   },
@@ -1471,7 +1487,7 @@
     "date_time": "24.10.2026 11:45",
     "group": "Первая группа",
     "home": "Балашиха",
-    "score": "2:0",
+    "score": "3:1",
     "status": "⏱ Матч идёт",
     "url": "https://фхмо.рф/matches/m_38212/"
   },
@@ -1491,7 +1507,7 @@
     "date_time": "24.10.2026 11:00",
     "group": "Первая группа",
     "home": "Драгуны Можайск",
-    "score": "3:3",
+    "score": "3:8",
     "status": "⏱ Матч идёт",
     "url": "https://фхмо.рф/matches/m_38214/"
   },
