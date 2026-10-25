@@ -92,6 +92,10 @@
       "count": 6,
       "last_scorer": "khimik"
     },
+    "https://фхмо.рф/matches/m_37788/": {
+      "count": 2,
+      "last_scorer": "khimik"
+    },
     "https://фхмо.рф/matches/m_37952/": {
       "count": 0,
       "last_scorer": "opponent"
@@ -319,6 +323,8 @@
     "m_37784:score:1:9",
     "m_37784:start",
     "m_37788:score:4:1",
+    "m_37788:score:5:1",
+    "m_37788:score:6:1",
     "m_37788:start",
     "m_37952:score:0:1",
     "m_37952:score:0:2",
@@ -1187,8 +1193,8 @@
     "date_time": "25.10.2026 14:45",
     "group": "Первая группа",
     "home": "Химик Воскресенск",
-    "score": "4:1",
-    "status": "⏱ Матч идёт",
+    "score": "6:1",
+    "status": "🏁 Матч завершён",
     "url": "https://фхмо.рф/matches/m_37788/"
   },
   "https://фхмо.рф/matches/m_37793/": {
@@ -1270,6 +1276,16 @@
     "score": "0:0",
     "status": "⏳ Матч не начался",
     "url": "https://фхмо.рф/matches/m_37829/"
+  },
+  "https://фхмо.рф/matches/m_37833/": {
+    "age": "2012",
+    "away": "Химик Воскресенск",
+    "date_time": "10.01.2027 00:00",
+    "group": "Первая группа",
+    "home": "Дмитров",
+    "score": "0:0",
+    "status": "⏳ Матч не начался",
+    "url": "https://фхмо.рф/matches/m_37833/"
   },
   "https://фхмо.рф/matches/m_37952/": {
     "age": "2013",
