@@ -148,9 +148,17 @@
       "count": 5,
       "last_scorer": "khimik"
     },
+    "https://фхмо.рф/matches/m_38217/": {
+      "count": 0,
+      "last_scorer": "opponent"
+    },
     "https://фхмо.рф/matches/m_38218/": {
-      "count": 1,
+      "count": 6,
       "last_scorer": "khimik"
+    },
+    "https://фхмо.рф/matches/m_38219/": {
+      "count": 0,
+      "last_scorer": "opponent"
     },
     "https://фхмо.рф/matches/m_38292/": {
       "count": 0,
@@ -315,6 +323,7 @@
     "m_37706:score:3:1",
     "m_37706:score:4:2",
     "m_37706:start",
+    "m_37711:start",
     "m_37778:score:1:0",
     "m_37778:score:2:0",
     "m_37778:score:3:0",
@@ -414,7 +423,15 @@
     "m_38214:score:3:7",
     "m_38214:score:3:8",
     "m_38215:score:5:6",
+    "m_38217:score:1:0",
+    "m_38217:score:2:0",
     "m_38218:score:0:1",
+    "m_38218:score:0:2",
+    "m_38218:score:0:3",
+    "m_38218:score:0:4",
+    "m_38218:score:0:5",
+    "m_38218:score:0:6",
+    "m_38219:score:1:0",
     "m_38219:start",
     "m_38292:score:1:10",
     "m_38292:score:1:11",
@@ -1094,7 +1111,7 @@
     "group": "Первая группа",
     "home": "Витязь Подольск",
     "score": "0:0",
-    "status": "⏳ Матч не начался",
+    "status": "⏱ Матч идёт",
     "url": "https://фхмо.рф/matches/m_37711/"
   },
   "https://фхмо.рф/matches/m_37719/": {
@@ -1633,8 +1650,8 @@
     "date_time": "31.10.2026 12:30",
     "group": "Первая группа",
     "home": "Академия Фетисова Домодедово",
-    "score": "0:0",
-    "status": "⏳ Матч не начался",
+    "score": "2:0",
+    "status": "⏱ Матч идёт",
     "url": "https://фхмо.рф/matches/m_38217/"
   },
   "https://фхмо.рф/matches/m_38218/": {
@@ -1643,7 +1660,7 @@
     "date_time": "31.10.2026 12:00",
     "group": "Первая группа",
     "home": "Драгуны Можайск",
-    "score": "0:1",
+    "score": "0:6",
     "status": "⏱ Матч идёт",
     "url": "https://фхмо.рф/matches/m_38218/"
   },
@@ -1653,7 +1670,7 @@
     "date_time": "31.10.2026 12:00",
     "group": "Первая группа",
     "home": "Армада Одинцово",
-    "score": "0:0",
+    "score": "1:0",
     "status": "⏱ Матч идёт",
     "url": "https://фхмо.рф/matches/m_38219/"
   },
