@@ -84,6 +84,10 @@
       "count": 0,
       "last_scorer": "opponent"
     },
+    "https://фхмо.рф/matches/m_37711/": {
+      "count": 0,
+      "last_scorer": "opponent"
+    },
     "https://фхмо.рф/matches/m_37778/": {
       "count": 0,
       "last_scorer": "opponent"
@@ -153,12 +157,12 @@
       "last_scorer": "opponent"
     },
     "https://фхмо.рф/matches/m_38218/": {
-      "count": 6,
+      "count": 13,
       "last_scorer": "khimik"
     },
     "https://фхмо.рф/matches/m_38219/": {
-      "count": 0,
-      "last_scorer": "opponent"
+      "count": 3,
+      "last_scorer": "khimik"
     },
     "https://фхмо.рф/matches/m_38292/": {
       "count": 0,
@@ -323,6 +327,7 @@
     "m_37706:score:3:1",
     "m_37706:score:4:2",
     "m_37706:start",
+    "m_37711:score:1:0",
     "m_37711:start",
     "m_37778:score:1:0",
     "m_37778:score:2:0",
@@ -423,15 +428,30 @@
     "m_38214:score:3:7",
     "m_38214:score:3:8",
     "m_38215:score:5:6",
+    "m_38216:start",
     "m_38217:score:1:0",
     "m_38217:score:2:0",
+    "m_38217:score:3:0",
+    "m_38217:score:4:0",
+    "m_38217:score:5:0",
+    "m_38217:score:6:0",
     "m_38218:score:0:1",
+    "m_38218:score:0:10",
+    "m_38218:score:0:11",
+    "m_38218:score:0:12",
+    "m_38218:score:0:13",
     "m_38218:score:0:2",
     "m_38218:score:0:3",
     "m_38218:score:0:4",
     "m_38218:score:0:5",
     "m_38218:score:0:6",
+    "m_38218:score:0:7",
+    "m_38218:score:0:8",
+    "m_38218:score:0:9",
     "m_38219:score:1:0",
+    "m_38219:score:1:1",
+    "m_38219:score:1:2",
+    "m_38219:score:1:3",
     "m_38219:start",
     "m_38292:score:1:10",
     "m_38292:score:1:11",
@@ -1110,7 +1130,7 @@
     "date_time": "31.10.2026 12:45",
     "group": "Первая группа",
     "home": "Витязь Подольск",
-    "score": "0:0",
+    "score": "1:0",
     "status": "⏱ Матч идёт",
     "url": "https://фхмо.рф/matches/m_37711/"
   },
@@ -1641,7 +1661,7 @@
     "group": "Первая группа",
     "home": "Химик Воскресенск",
     "score": "0:0",
-    "status": "⏳ Матч не начался",
+    "status": "⏱ Матч идёт",
     "url": "https://фхмо.рф/matches/m_38216/"
   },
   "https://фхмо.рф/matches/m_38217/": {
@@ -1650,7 +1670,7 @@
     "date_time": "31.10.2026 12:30",
     "group": "Первая группа",
     "home": "Академия Фетисова Домодедово",
-    "score": "2:0",
+    "score": "6:0",
     "status": "⏱ Матч идёт",
     "url": "https://фхмо.рф/matches/m_38217/"
   },
@@ -1660,7 +1680,7 @@
     "date_time": "31.10.2026 12:00",
     "group": "Первая группа",
     "home": "Драгуны Можайск",
-    "score": "0:6",
+    "score": "0:13",
     "status": "⏱ Матч идёт",
     "url": "https://фхмо.рф/matches/m_38218/"
   },
@@ -1670,9 +1690,19 @@
     "date_time": "31.10.2026 12:00",
     "group": "Первая группа",
     "home": "Армада Одинцово",
-    "score": "1:0",
-    "status": "⏱ Матч идёт",
+    "score": "1:3",
+    "status": "🏁 Матч завершён",
     "url": "https://фхмо.рф/matches/m_38219/"
+  },
+  "https://фхмо.рф/matches/m_38220/": {
+    "age": "2017",
+    "away": "Балашиха",
+    "date_time": "07.11.2026 00:00",
+    "group": "Первая группа",
+    "home": "Академия Фетисова Домодедово",
+    "score": "0:0",
+    "status": "⏳ Матч не начался",
+    "url": "https://фхмо.рф/matches/m_38220/"
   },
   "https://фхмо.рф/matches/m_38221/": {
     "age": "2017",
