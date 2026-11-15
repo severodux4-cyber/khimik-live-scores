@@ -76,6 +76,10 @@
       "count": 0,
       "last_scorer": "opponent"
     },
+    "https://фхмо.рф/matches/m_37616/": {
+      "count": 5,
+      "last_scorer": "khimik"
+    },
     "https://фхмо.рф/matches/m_37696/": {
       "count": 1,
       "last_scorer": "khimik"
@@ -99,6 +103,10 @@
     "https://фхмо.рф/matches/m_37788/": {
       "count": 2,
       "last_scorer": "khimik"
+    },
+    "https://фхмо.рф/matches/m_37803/": {
+      "count": 0,
+      "last_scorer": "opponent"
     },
     "https://фхмо.рф/matches/m_37952/": {
       "count": 0,
@@ -331,6 +339,11 @@
     "m_37606:score:5:4",
     "m_37611:start",
     "m_37613:score:1:15",
+    "m_37616:score:1:0",
+    "m_37616:score:2:0",
+    "m_37616:score:3:0",
+    "m_37616:score:4:0",
+    "m_37616:score:5:0",
     "m_37696:score:2:2",
     "m_37696:score:3:2",
     "m_37696:start",
@@ -367,6 +380,9 @@
     "m_37793:finish:3:2",
     "m_37793:score:3:2",
     "m_37801:score:3:2",
+    "m_37803:score:1:0",
+    "m_37803:score:2:0",
+    "m_37803:score:3:0",
     "m_37952:score:0:1",
     "m_37952:score:0:2",
     "m_37952:score:1:3",
@@ -531,7 +547,8 @@
     "m_38481:score:2:4",
     "m_38611:score:1:5",
     "m_38619:score:1:0",
-    "m_38619:score:5:4"
+    "m_38619:score:5:4",
+    "m_38621:score:3:8"
   ],
   "https://фхмо.рф/matches/m_36618/": {
     "age": "2010",
@@ -1089,8 +1106,8 @@
     "date_time": "15.11.2026 16:30",
     "group": "Первая группа",
     "home": "Химик Воскресенск",
-    "score": "0:0",
-    "status": "⏳ Матч не начался",
+    "score": "5:0",
+    "status": "⏱ Матч идёт",
     "url": "https://фхмо.рф/matches/m_37616/"
   },
   "https://фхмо.рф/matches/m_37620/": {
@@ -1339,8 +1356,8 @@
     "date_time": "15.11.2026 14:45",
     "group": "Первая группа",
     "home": "Балашиха",
-    "score": "0:0",
-    "status": "⏳ Матч не начался",
+    "score": "3:0",
+    "status": "🏁 Матч завершён",
     "url": "https://фхмо.рф/matches/m_37803/"
   },
   "https://фхмо.рф/matches/m_37808/": {
@@ -2159,8 +2176,8 @@
     "date_time": "15.11.2026 14:15",
     "group": "Первая группа",
     "home": "Химик Воскресенск",
-    "score": "0:0",
-    "status": "⏳ Матч не начался",
+    "score": "3:8",
+    "status": "🏁 Матч завершён",
     "url": "https://фхмо.рф/matches/m_38621/"
   },
   "https://фхмо.рф/matches/m_38626/": {
